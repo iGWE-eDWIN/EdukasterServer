@@ -12,8 +12,8 @@ npm run create-admin
 
 This will create an admin user with the following credentials:
 
-- **Email**: `admin@edukaster.com`
-- **Password**: `Admin123!`
+- **Email**: ``
+- **Password**: `!`
 
 **Important**: Change the password after first login for security.
 
@@ -27,7 +27,7 @@ use edukaster
 
 // Insert admin user
 db.users.insertOne({
-  email: "admin@edukaster.com",
+  email: "",
   password: "$2a$10$...", // Use bcrypt to hash the password
   name: "System Administrator",
   role: "admin",
@@ -45,8 +45,8 @@ db.users.insertOne({
 3. Navigate to the authentication screen
 4. Click "Admin Login" at the bottom
 5. Enter admin credentials:
-   - Email: `admin@edukaster.com`
-   - Password: `Admin123!`
+   - Email: ``
+   - Password: ``
 6. You'll be redirected to the admin dashboard
 
 ### Admin Features
