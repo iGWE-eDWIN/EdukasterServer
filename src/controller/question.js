@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const Question = require('../models/question');
 const { getGridFSBucket } = require('../db/mongoose');
+const convert = require('heic-convert');
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -14,11 +15,20 @@ const upload = multer({
       'image/jpeg',
       'image/png',
       'image/jpg',
+      'image/heic', // iPhone photos
+      'image/heif', // iPhone photos
+      'image/webp', // Modern format
+      'video/mp4',
+      'video/quicktime',
     ];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF and images are allowed.'));
+      cb(
+        new Error(
+          `Invalid file type: ${file.mimetype}. Only PDF, images, and videos are allowed.`
+        )
+      );
     }
   },
 });
@@ -27,6 +37,7 @@ const upload = multer({
 const uploadQuestion = async (req, res) => {
   try {
     const { institution, courseTitle, courseCode, courseDetails } = req.body;
+    // console.log(req.body);
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'At least one file is required' });
@@ -36,33 +47,52 @@ const uploadQuestion = async (req, res) => {
 
     // Upload files to GridFS
     const uploadedFiles = await Promise.all(
-      req.files.map(
-        (file) =>
-          new Promise((resolve, reject) => {
-            const uploadStream = gridfsBucket.openUploadStream(
-              file.originalname,
-              {
-                metadata: {
-                  uploadedBy: req.user._id,
-                  contentType: file.mimetype,
-                },
-              }
-            );
+      req.files.map(async (file) => {
+        try {
+          let buffer = file.buffer;
+          let mimetype = file.mimetype;
+          let originalname = file.originalname;
+          // ✅ Convert HEIC → JPEG
+          if (
+            mimetype === 'image/heic' ||
+            mimetype === 'image/heif' ||
+            originalname.toLowerCase().endsWith('.heic')
+          ) {
+            buffer = await convert({
+              buffer: file.buffer,
+              format: 'JPEG',
+              quality: 0.9,
+            });
+            mimetype = 'image/jpeg';
+            originalname = originalname.replace(/\.heic$/i, '.jpg');
+          }
 
-            uploadStream.end(file.buffer);
+          // Upload to GridFS
+          return new Promise((resolve, reject) => {
+            const uploadStream = gridfsBucket.openUploadStream(originalname, {
+              metadata: {
+                uploadedBy: req.user._id,
+                contentType: mimetype,
+              },
+            });
+
+            uploadStream.end(buffer);
 
             uploadStream.on('finish', () => {
               resolve({
                 fileId: uploadStream.id,
-                fileName: file.originalname,
+                fileName: originalname,
                 fileSize: file.size,
-                mimeType: file.mimetype,
+                mimetype,
               });
             });
 
             uploadStream.on('error', reject);
-          })
-      )
+          });
+        } catch (error) {
+          throw new Error(`File processing error: ${error.message}`);
+        }
+      })
     );
 
     // Save question in DB
@@ -106,7 +136,8 @@ const getAllQuestions = async (req, res) => {
     } = req.query;
 
     const query = {};
-
+    console.log(req.user);
+    // if (req.user.role === 'admin') query.isApproved = true;
     // Only show approved questions to non-admin users
     if (approved === 'true' && (!req.user || req.user.role !== 'admin')) {
       query.isApproved = true;
@@ -131,9 +162,23 @@ const getAllQuestions = async (req, res) => {
       .skip((page - 1) * limit);
 
     const total = await Question.countDocuments(query);
+    // Add file URLs to each question
+    const questionsWithUrls = questions.map((question) => {
+      const questionObj = question.toObject();
+
+      // Add URL for each image
+      questionObj.images = questionObj.images.map((img) => ({
+        ...img,
+        url: `${req.protocol}://${req.get('host')}/questions/file/${
+          img.fileId
+        }`,
+      }));
+
+      return questionObj;
+    });
 
     res.json({
-      questions,
+      questions: questionsWithUrls,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       total,

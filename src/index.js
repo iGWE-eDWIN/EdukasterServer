@@ -8,6 +8,9 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { connectDB } = require('./db/mongoose');
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const tutorRoutes = require('./routes/tutors');
+const questionRoutes = require('./routes/question');
 const createAdmin = require('./scripts/createAdmin');
 
 const app = express();
@@ -16,10 +19,18 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8081',
+    origin: '*',
     credentials: true,
+    exposedHeaders: ['Content-Type', 'Content-Length'],
   })
 );
+
+// ✅ Add this middleware for all responses
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -42,13 +53,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use(authRoutes);
+app.use(userRoutes);
+app.use(tutorRoutes);
+app.use(questionRoutes);
 
 const PORT = process.env.PORT || 3000;
 
-// 404 handler
-// app.use('*', (req, res) => {
-//   res.status(404).json({ message: 'Route not found' });
-// });
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });

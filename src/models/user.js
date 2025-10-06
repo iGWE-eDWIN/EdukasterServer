@@ -64,6 +64,16 @@ userSchema = new Schema(
     goal: {
       type: String, // Student's learning goal
     },
+    // Tutor-specific fields
+    courseTitle: {
+      type: String,
+    },
+    courseDetails: {
+      type: String,
+    },
+    experience: {
+      type: String,
+    },
 
     // Settings (frontend expects these)
     notification: {
@@ -83,9 +93,12 @@ userSchema = new Schema(
 
     availability: [
       {
-        day: String,
-        startTime: String,
-        endTime: String,
+        day: { type: String },
+        from: { type: String },
+        to: { type: String },
+        ampmFrom: { type: String, enum: ['AM', 'PM'], default: 'AM' },
+        ampmTo: { type: String, enum: ['AM', 'PM'], default: 'AM' },
+        active: { type: Boolean, default: false },
       },
     ],
     rating: {
@@ -97,10 +110,12 @@ userSchema = new Schema(
       default: 0,
     },
     bio: String,
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
+    // isVerified: {
+    //   type: Boolean,
+    //   default: false,
+    // },
+
+    rejectionReason: String, // For tutors, reason for rejection if not approved
     // Payment info
     paystackCustomerCode: String,
     totalEarnings: {
@@ -132,8 +147,7 @@ userSchema.methods.generateAuthToken = async function () {
   // Access token (short life)
   const accessToken = jwt.sign(
     { _id: user._id.toString() },
-    process.env.JWT_Secret,
-    { expiresIn: '15m' }
+    process.env.JWT_Secret
   );
 
   // Refresh token (long life)

@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const paystackService = require('../services/paystackService');
 const bcrypt = require('bcryptjs');
-const formatUser = require('../utils/formatUser');
+const { formatUser } = require('../utils/formatDetails');
 
 // Register user
 const registerUser = async (req, res) => {
@@ -26,6 +26,12 @@ const registerUser = async (req, res) => {
     await user.save();
     // const user = await new User(userData);
     // await user.save();
+
+    // Send approval notification for tutors
+    if (role === 'tutor') {
+      // In a real app, you might send an email notification to admin
+      console.log(`New tutor registration pending approval: ${user.email}`);
+    }
 
     // Create Paystack customer for students
     if (role === 'student') {
@@ -59,7 +65,7 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    console.log(req.body);
+    // console.log(req.body);
     const { email, password } = req.body;
     const user = await User.findByCredentials(email, password);
     // Check if account is active
@@ -170,11 +176,37 @@ const changePassword = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user._id; // Auth middleware puts user into req.user
-    const { goal, about } = req.body;
+    const {
+      goal,
+      about,
+      courseTitle,
+      courseDetails,
+      experience,
+      availableDays,
+    } = req.body;
+
     // console.log(req.body);
     const updates = {};
     if (goal) updates.goal = goal;
     if (about) updates.about = about;
+    if (courseTitle) updates.courseTitle = courseTitle;
+    if (courseDetails) updates.courseDetails = courseDetails;
+    if (experience) updates.experience = experience;
+    if (availableDays) {
+      const parsedDays =
+        typeof availableDays === 'string'
+          ? JSON.parse(availableDays)
+          : availableDays;
+      const available = Object.entries(parsedDays).map(([day, data]) => ({
+        day,
+        from: data.from,
+        to: data.to,
+        ampmFrom: data.ampmFrom,
+        ampmTo: data.ampmTo,
+        active: data.active,
+      }));
+      updates.availability = available;
+    }
 
     // If avatar uploaded
     if (req.file) {
@@ -184,11 +216,15 @@ const updateProfile = async (req, res) => {
       };
     }
 
+    // console.log(updates);
+
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
       { new: true }
     );
+
+    // console.log(user);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
