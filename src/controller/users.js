@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const Wallet = require('../models/wallet');
 const { formatUser } = require('../utils/formatDetails');
 
 // Get all users
@@ -180,6 +181,140 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// Get user details (Admin only)
+const getUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+      });
+    }
+    // Get recent wallet transactions if student
+    let recentTransactions = [];
+    if (user.role === 'student') {
+      recentTransactions = await Wallet.find({ userId: id })
+        .populate('adminId', 'name email')
+        .sort({ createAt: -1 })
+        .limit(10);
+    }
+
+    res.json({
+      message: 'User detail gotten successfully',
+      user: formatUser(user),
+      recentTransactions,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update user details (Admin only)
+const updateUserDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    // Remove sensitive fields that shouldn't be updated this way
+    delete updates.password;
+    delete updates._id;
+    delete updates.__v;
+
+    const user = await User.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      message: 'User updated successfully',
+      user: formatUser(user),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Change user password (Admin only)
+const changeUsersPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // update new password (will trigger pre-save hook in model)
+    user.password = newPassword;
+    user.passwordChangedAt = Date.now(); // optional: track password change
+    await user.save();
+    res.status(200).json({
+      message: 'Password changed successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Change user role (Admin only)
+const changeUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['student', 'tutor', 'admin'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const oldRole = user.role;
+    user.role = role;
+
+    // Set approval status based on new role
+    if (role === 'tutor') {
+      user.isApproved = false; // Tutors need approval
+    } else {
+      user.isApproved = true; // Students and admins are auto-approved
+    }
+
+    await user.save();
+
+    res.json({
+      message: `User role changed from ${oldRole} to ${role}`,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isApproved: user.isApproved,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getPendingTutorApprovals,
@@ -187,4 +322,8 @@ module.exports = {
   rejectTutor,
   updateUserStatus,
   deleteUser,
+  getUserDetails,
+  updateUserDetails,
+  changeUsersPassword,
+  changeUserRole,
 };

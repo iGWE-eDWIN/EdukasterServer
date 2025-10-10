@@ -80,11 +80,11 @@ userSchema = new Schema(
       type: Boolean,
       default: true, // Notifications enabled
     },
-    subscription: {
-      type: String,
-      enum: ['free', 'premium', 'pro'],
-      default: 'free',
-    },
+    // subscription: {
+    //   type: String,
+    //   enum: ['free', 'premium', 'pro'],
+    //   default: 'free',
+    // },
     privacy: {
       type: String,
       enum: ['public', 'private'],
@@ -122,6 +122,27 @@ userSchema = new Schema(
       type: Number,
       default: 0,
     },
+    // Wallet and subscription info
+    walletBalance: {
+      type: Number,
+      default: 0,
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: ['free', 'scholar-life', 'edu-pro'],
+      default: 'free',
+    },
+    subscriptionExpiresAt: Date,
+    dailyQuestionViews: {
+      type: Number,
+      default: 0,
+    },
+    lastQuestionViewDate: Date,
+    monthlySolutionRequests: {
+      type: Number,
+      default: 0,
+    },
+    lastSolutionRequestMonth: String,
     tokens: [
       {
         token: {

@@ -1,6 +1,6 @@
-const express = require('express');
 const multer = require('multer');
 const Question = require('../models/question');
+const User = require('../models/user');
 const { getGridFSBucket } = require('../db/mongoose');
 const convert = require('heic-convert');
 
@@ -136,12 +136,16 @@ const getAllQuestions = async (req, res) => {
     } = req.query;
 
     const query = {};
-    console.log(req.user);
+    // console.log(req.user);
     // if (req.user.role === 'admin') query.isApproved = true;
     // Only show approved questions to non-admin users
     if (approved === 'true' && (!req.user || req.user.role !== 'admin')) {
       query.isApproved = true;
     }
+
+    // Check daily question view limit for free users
+    // if (req.user && req.user.role === 'student') {
+    // }
 
     if (search) {
       query.$or = [
