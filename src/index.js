@@ -21,10 +21,17 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+// app.use(
+//   cors({
+//     origin: '*',
+//     credentials: true,
+//     exposedHeaders: ['Content-Type', 'Content-Length'],
+//   })
+// );
+
 app.use(
   cors({
     origin: '*',
-    credentials: true,
     exposedHeaders: ['Content-Type', 'Content-Length'],
   })
 );
