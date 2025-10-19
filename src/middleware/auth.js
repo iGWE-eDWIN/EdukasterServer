@@ -11,7 +11,7 @@ const auth = async (req, res, next) => {
     }
 
     const token = authorization.replace('Bearer ', '');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_Secret);
 
     // Ensure the user exists AND that this token is still valid (not revoked)
     // const user = await User.findOne({
