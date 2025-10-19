@@ -15,7 +15,7 @@ const walletRoutes = require('./routes/wallet');
 const subcriptionRoutes = require('./routes/subcsription');
 const solutionRoutes = require('./routes/solution');
 const bookingRoutes = require('./routes/booking');
-const createAdmin = require('./scripts/createAdmin');
+// const createAdmin = require('./scripts/createAdmin');
 
 const app = express();
 
