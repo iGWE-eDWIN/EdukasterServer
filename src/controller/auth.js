@@ -183,15 +183,23 @@ const updateProfile = async (req, res) => {
       courseDetails,
       experience,
       availableDays,
+      tutorFee,
     } = req.body;
 
     // console.log(req.body);
+    console.log(tutorFee);
     const updates = {};
     if (goal) updates.goal = goal;
     if (about) updates.about = about;
     if (courseTitle) updates.courseTitle = courseTitle;
     if (courseDetails) updates.courseDetails = courseDetails;
     if (experience) updates.experience = experience;
+
+    // ✅ Update tutor fee only — do not compute total yet
+    if (tutorFee !== undefined) {
+      updates['fees.tutorFee'] = Number(tutorFee);
+    }
+
     if (availableDays) {
       const parsedDays =
         typeof availableDays === 'string'
@@ -223,7 +231,7 @@ const updateProfile = async (req, res) => {
       { $set: updates },
       { new: true }
     );
-
+    // console.log(user.fees);
     // console.log(user);
 
     if (!user) {

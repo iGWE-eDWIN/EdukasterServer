@@ -135,58 +135,138 @@ const getAllQuestions = async (req, res) => {
       approved = 'true',
     } = req.query;
 
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+
     const query = {};
-    // console.log(req.user);
-    // if (req.user.role === 'admin') query.isApproved = true;
+
     // Only show approved questions to non-admin users
     if (approved === 'true' && (!req.user || req.user.role !== 'admin')) {
       query.isApproved = true;
     }
 
-    // Check daily question view limit for free users
-    // if (req.user && req.user.role === 'student') {
-    // }
+    // Free student daily question view limiter
+    if (req.user?.role === 'student') {
+      const user = await User.findById(req.user._id);
+      if (user?.subscriptionPlan === 'free') {
+        const today = new Date().toDateString();
+        const lastViewDate = user.lastQuestionViewDate?.toDateString() || null;
 
+        if (lastViewDate !== today) {
+          user.dailyQuestionViews = 0;
+          user.lastQuestionViewDate = new Date();
+          await user.save();
+        }
+
+        if (user.dailyQuestionViews >= 7) {
+          query.uploadedBy = user._id;
+        }
+      }
+    }
+
+    // Search and filter logic
     if (search) {
       query.$or = [
-        { tags: { $in: [new RegExp(search, 'i')] } },
+        { institution: { $regex: search, $options: 'i' } },
         { courseTitle: { $regex: search, $options: 'i' } },
         { courseCode: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } },
       ];
     }
 
-    if (institution) query.institution = institution;
-    if (courseTitle) query.courseTitle = courseTitle;
-    if (courseCode) query.courseCode = courseCode;
+    if (institution && !search) query.institution = institution;
+    if (courseTitle && !search) query.courseTitle = courseTitle;
+    if (courseCode && !search) query.courseCode = courseCode;
 
     const questions = await Question.find(query)
       .populate('uploadedBy', 'name email')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum);
 
     const total = await Question.countDocuments(query);
-    // Add file URLs to each question
+
     const questionsWithUrls = questions.map((question) => {
       const questionObj = question.toObject();
-
-      // Add URL for each image
-      questionObj.images = questionObj.images.map((img) => ({
+      questionObj.images = (questionObj.images || []).map((img) => ({
         ...img,
         url: `${req.protocol}://${req.get('host')}/questions/file/${
           img.fileId
         }`,
       }));
-
-      return questionObj;
+      return {
+        ...questionObj,
+        updatedAt: questionObj.updatedAt || questionObj.createdAt,
+      };
     });
 
     res.json({
       questions: questionsWithUrls,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total,
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getQuestionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const question = await Question.findById(id).populate(
+      'uploadedBy',
+      'name email'
+    );
+
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Count view only for student users
+    if (req.user && req.user.role === 'student') {
+      const user = await User.findById(req.user._id);
+
+      // Free plan check
+      if (user.subscriptionPlan === 'free') {
+        const today = new Date().toDateString();
+        const lastViewDate = user.lastQuestionViewDate
+          ? user.lastQuestionViewDate.toDateString()
+          : null;
+
+        // Reset daily counter if new day
+        if (lastViewDate !== today) {
+          user.dailyQuestionViews = 0;
+          user.lastQuestionViewDate = new Date();
+          await user.save();
+        }
+
+        // If not their own upload, increment view
+        if (String(question.uploadedBy._id) !== String(user._id)) {
+          if (user.dailyQuestionViews >= 7) {
+            return res.status(403).json({
+              message:
+                'Daily question view limit reached. Upgrade to continue viewing.',
+              dailyLimit: 7,
+              viewsToday: user.dailyQuestionViews,
+            });
+          }
+
+          user.dailyQuestionViews += 1;
+          await user.save();
+        }
+      }
+    }
+
+    // Add file URLs
+    const questionObj = question.toObject();
+    questionObj.images = questionObj.images.map((img) => ({
+      ...img,
+      url: `${req.protocol}://${req.get('host')}/questions/file/${img.fileId}`,
+    }));
+
+    res.json(questionObj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -283,6 +363,7 @@ module.exports = {
   upload,
   uploadQuestion,
   getAllQuestions,
+  getQuestionById,
   getUploads,
   approveQuestion,
   deletePastQuestion,

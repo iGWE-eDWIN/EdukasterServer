@@ -315,6 +315,67 @@ const changeUserRole = async (req, res) => {
   }
 };
 
+// Admin sets their own fee for a tutor
+// const setTutorAdminFee = async (req, res) => {
+//   try {
+//     const { tutorId } = req.params;
+//     const { adminFee } = req.body;
+//     console.log(tutorId, adminFee);
+
+//     const tutor = await User.findById(tutorId);
+//     if (!tutor || tutor.role !== 'tutor') {
+//       return res.status(404).json({ message: 'Tutor not found' });
+//     }
+
+//     tutor.fees.adminFee = Number(adminFee) || 0;
+//     tutor.fees.totalFee = tutor.fees.tutorFee + tutor.fees.adminFee; // ✅ totalFee computed here
+//     await tutor.save();
+//     console.log(tutor.fees.tutorFee);
+//     console.log(tutor.fees.totalFee);
+
+//     res.status(200).json({
+//       message: 'Tutor admin fee set successfully',
+//       user: formatUser(tutor),
+//     });
+//   } catch (error) {
+//     console.error('setTutorAdminFee error:', error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+const setTutorAdminFee = async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    const { adminFee } = req.body;
+
+    const tutor = await User.findById(tutorId);
+    if (!tutor || tutor.role !== 'tutor') {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    const newAdminFee = Number(adminFee) || 0;
+    const tutorFee = Number(tutor.fees?.tutorFee || 0);
+    const totalFee = tutorFee + newAdminFee;
+
+    tutor.fees.adminFee = newAdminFee;
+    tutor.fees.totalFee = totalFee;
+    tutor.markModified('fees'); // ✅ ensures nested save works
+    await tutor.save();
+
+    console.log(tutor.fees.adminFee);
+    console.log(tutor.fees.tutorFee);
+    console.log(tutor.fees.totalFee);
+
+    res.status(200).json({
+      message: 'Tutor admin fee set successfully',
+      user: formatUser(tutor),
+    });
+  } catch (error) {
+    console.error('setTutorAdminFee error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getPendingTutorApprovals,
@@ -326,4 +387,5 @@ module.exports = {
   updateUserDetails,
   changeUsersPassword,
   changeUserRole,
+  setTutorAdminFee,
 };

@@ -7,6 +7,7 @@ const {
   getUploads,
   approveQuestion,
   deletePastQuestion,
+  getQuestionById,
 } = require('../controller/question');
 const { getGridFSBucket } = require('../db/mongoose');
 const mongoose = require('mongoose');
@@ -68,6 +69,9 @@ router.get('/questions/file/:fileId', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// Get a single question by ID (for detail view)
+router.get('/questions/:id', auth, getQuestionById);
 
 // Get my uploads
 router.get('/questions/my-uploads', auth, getUploads);

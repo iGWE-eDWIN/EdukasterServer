@@ -62,6 +62,7 @@ const subWithWallet = async (req, res) => {
   try {
     const id = req.user._id;
     const { plan } = req.body;
+    // console.log(plan);
 
     if (!SUBSCRIPTION_PLANS[plan]) {
       return res.status(400).json({ message: 'Invalid subscription plan' });
@@ -112,6 +113,7 @@ const subWithWallet = async (req, res) => {
       paymentMethod: 'wallet',
     });
     await subscription.save();
+    // console.log(subscription);
     res.json({
       message: 'Subscription activated successfully',
       subscription,

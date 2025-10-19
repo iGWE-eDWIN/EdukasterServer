@@ -11,6 +11,7 @@ const {
   updateUserDetails,
   changeUsersPassword,
   changeUserRole,
+  setTutorAdminFee,
 } = require('../controller/users');
 
 const router = new express.Router();
@@ -35,5 +36,7 @@ router.patch(
   changeUsersPassword
 );
 router.patch('/users/:id/role', auth, authorize('admin'), changeUserRole);
+
+router.put('/users/:tutorId/fee', auth, authorize('admin'), setTutorAdminFee);
 
 module.exports = router;

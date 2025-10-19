@@ -14,12 +14,7 @@ router.get('/wallet', auth, authorize('student'), getWalletBalance);
 // Initialize wallet funding
 router.post('/wallet/fund', auth, authorize('student'), fundWallet);
 // Verify wallet funding
-router.post(
-  '/verfy/:reference',
-  auth,
-  authorize('student'),
-  verifyWalletFunding
-);
+router.get('/wallet/verify/:reference', verifyWalletFunding);
 // Admin fund user wallet
 router.post(
   '/wallet/admin-fund/:userId',

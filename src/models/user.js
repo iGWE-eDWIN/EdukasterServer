@@ -75,6 +75,12 @@ userSchema = new Schema(
       type: String,
     },
 
+    category: {
+      type: String,
+      enum: ['academic', 'english', 'consultant', 'others'],
+      default: 'others',
+    },
+
     // Settings (frontend expects these)
     notification: {
       type: Boolean,
@@ -101,6 +107,11 @@ userSchema = new Schema(
         active: { type: Boolean, default: false },
       },
     ],
+    fees: {
+      tutorFee: { type: Number, default: 0 }, // tutor’s own fee
+      adminFee: { type: Number, default: 0 }, // admin’s portion
+      totalFee: { type: Number, default: 0 }, // tutorFee + adminFee
+    },
     rating: {
       type: Number,
       default: 0,
@@ -220,6 +231,79 @@ userSchema.pre('save', async function (next) {
   } catch (error) {
     next(error);
   }
+});
+
+// Auto-detect tutor category
+function detectCategory(courseTitle = '') {
+  const title = courseTitle.trim().toLowerCase();
+  const consultants = [
+    'consultant',
+    'business consultant',
+    'career consultant',
+    'education consultant',
+  ];
+  const englishCourses = [
+    'pte',
+    'toefl',
+    'ielts',
+    'sat',
+    'gre',
+    'english proficiency',
+    'language test',
+  ];
+  const academicSubjects = [
+    'mathematics',
+    'math',
+    'english',
+    'physics',
+    'chemistry',
+    'biology',
+    'economics',
+    'government',
+    'history',
+    'geography',
+    'literature',
+    'computer science',
+    'accounting',
+    'commerce',
+    'civic',
+    'further mathematics',
+    'agric',
+  ];
+
+  if (consultants.some((c) => title.includes(c))) return 'consultant';
+  if (englishCourses.some((c) => title.includes(c))) return 'english';
+  if (academicSubjects.some((c) => title.includes(c))) return 'academic';
+  return 'others';
+}
+
+userSchema.pre('save', function (next) {
+  if (this.role === 'tutor' && this.courseTitle) {
+    this.category = detectCategory(this.courseTitle);
+  }
+  next();
+});
+
+userSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate();
+
+  if (!update) return next();
+
+  // Check both direct and nested courseTitle updates
+  const courseTitle =
+    update.courseTitle || (update.$set && update.$set.courseTitle);
+
+  if (courseTitle) {
+    const newCategory = detectCategory(courseTitle);
+
+    // Make sure we apply to $set safely
+    if (!update.$set) update.$set = {};
+    update.$set.category = newCategory;
+
+    this.setUpdate(update);
+  }
+
+  next();
 });
 
 const User = model('User', userSchema);
