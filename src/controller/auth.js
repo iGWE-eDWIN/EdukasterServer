@@ -6,13 +6,37 @@ const { formatUser } = require('../utils/formatDetails');
 // Register user
 const registerUser = async (req, res) => {
   try {
-    const { email, password, name, role } = req.body;
+    // const { email, password, name, role } = req.body;
+    const {
+      email,
+      password,
+      name,
+      username,
+      role,
+      institutionType,
+      institution,
+    } = req.body;
+
     // console.log(req.body);
+    // Validate mandatory fields
+    if (!email || !password || !name || !username || !role) {
+      return res
+        .status(400)
+        .json({ message: 'Please fill all required fields.' });
+    }
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    // const existingUser = await User.findOne({ email });
+    // if (existingUser) {
+    //   return res.status(400).json({ message: 'User already exists' });
+    // }
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res
+        .status(400)
+        .json({ message: 'Email or username already exists.' });
     }
 
     // Create user
@@ -20,12 +44,21 @@ const registerUser = async (req, res) => {
       email,
       password,
       name,
+      username,
       role,
     };
-    const user = new User(userData);
-    await user.save();
+
     // const user = await new User(userData);
     // await user.save();
+
+    // Only students should have institution details
+    if (role === 'student') {
+      userData.institutionType = institutionType || null;
+      userData.institution = institution || '';
+    }
+
+    const user = new User(userData);
+    await user.save();
 
     // Send approval notification for tutors
     if (role === 'tutor') {

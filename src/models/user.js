@@ -38,6 +38,31 @@ userSchema = new Schema(
       type: String,
       required: true,
     },
+
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      minlength: [3, 'Username must be at least 3 characters long'],
+    },
+
+    role: {
+      type: String,
+      enum: ['student', 'tutor', 'admin'],
+      required: true,
+    },
+
+    institutionType: {
+      type: String,
+      enum: ['Institution', 'Other', null],
+      default: null,
+    },
+
+    institution: {
+      type: String,
+      trim: true,
+    },
     role: {
       type: String,
       enum: ['student', 'tutor', 'admin'],
