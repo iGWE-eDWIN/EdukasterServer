@@ -7,7 +7,6 @@ const { sendEmail } = require('../utils/email');
 // Register user
 const registerUser = async (req, res) => {
   try {
-    // const { email, password, name, role } = req.body;
     const {
       email,
       password,
@@ -18,29 +17,19 @@ const registerUser = async (req, res) => {
       institution,
     } = req.body;
 
-    // console.log(req.body);
-    // Validate mandatory fields
     if (!email || !password || !name || !username || !role) {
       return res
         .status(400)
         .json({ message: 'Please fill all required fields.' });
     }
 
-    // Check if user exists
-    // const existingUser = await User.findOne({ email });
-    // if (existingUser) {
-    //   return res.status(400).json({ message: 'User already exists' });
-    // }
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res
         .status(400)
         .json({ message: 'Email or username already exists.' });
     }
 
-    // Create user
     const user = new User({
       email,
       password,
@@ -51,43 +40,31 @@ const registerUser = async (req, res) => {
       institution: institution || '',
       isVerified: false,
     });
-    // const userData = {
-    //   email,
-    //   password,
-    //   name,
-    //   username,
-    //   role,
-    //   isVerified: false
-    // };
 
-    // // Only students should have institution details
-    // if (role === 'student') {
-    //   userData.institutionType = institutionType || null;
-    //   userData.institution = institution || '';
-    // }
-
-    // const user = new User(userData);
-
-    // Generate Otp
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+    const otpExpires = Date.now() + 5 * 60 * 1000;
 
     user.twoFactorEmailOTP = otp;
     user.twoFactorEmailExpires = otpExpires;
     await user.save();
 
-    await sendEmail(
-      user.email,
-      'Edukaster Email Verification',
-      `Welcome to Edukaster!\nYour verification code is ${otp}\n\nIt expires in 5 minutes.`
-    );
-
+    // ✅ Respond first (fast)
     res.status(200).json({
       verificationRequired: true,
       message: 'OTP sent to your email for verification.',
       email: user.email,
     });
+
+    // 📩 Then send email in background (non-blocking)
+    sendEmail(
+      user.email,
+      'Edukaster Email Verification',
+      `Welcome to Edukaster!\nYour verification code is ${otp}\n\nIt expires in 5 minutes.`
+    )
+      .then(() => console.log(`✅ Email sent to ${user.email}`))
+      .catch((err) => console.error(`❌ Failed to send email:`, err.message));
   } catch (error) {
+    console.error('❌ Register user error:', error);
     res.status(500).json({ message: error.message });
   }
 };
