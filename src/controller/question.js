@@ -130,13 +130,8 @@ const getAllQuestions = async (req, res) => {
       institution,
       courseTitle,
       courseCode,
-      page = 1,
-      limit = 20,
       approved = 'true',
     } = req.query;
-
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 20;
 
     const query = {};
 
@@ -180,11 +175,9 @@ const getAllQuestions = async (req, res) => {
 
     const questions = await Question.find(query)
       .populate('uploadedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(limitNum)
-      .skip((pageNum - 1) * limitNum);
+      .sort({ createdAt: -1 });
 
-    const total = await Question.countDocuments(query);
+    // const total = await Question.countDocuments(query);
 
     const questionsWithUrls = questions.map((question) => {
       const questionObj = question.toObject();
@@ -202,9 +195,8 @@ const getAllQuestions = async (req, res) => {
 
     res.json({
       questions: questionsWithUrls,
-      totalPages: Math.ceil(total / limitNum),
-      currentPage: pageNum,
-      total,
+      total: questions.length,
+      // currentPage: pageNum,
     });
   } catch (error) {
     console.error(error);

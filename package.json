@@ -25,6 +25,7 @@
     "mongoose": "^8.17.1",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "nodemailer": "^7.0.10",
     "nodemon": "^3.1.10",
     "paystack": "^2.0.1",
     "sharp": "^0.34.4",

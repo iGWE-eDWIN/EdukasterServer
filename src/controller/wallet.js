@@ -180,7 +180,8 @@ const getWalletBalance = async (req, res) => {
 const fundWallet = async (req, res) => {
   try {
     const id = req.user._id;
-    const { amount } = req.body;
+    const { amount, redirectUri } = req.body;
+    console.log(redirectUri);
 
     if (!amount || amount < 100) {
       return res
@@ -210,6 +211,7 @@ const fundWallet = async (req, res) => {
         userId: id,
         type: 'wallet_funding',
         amount,
+        redirectUri,
       },
     });
 
@@ -295,23 +297,20 @@ const verifyWalletFunding = async (req, res) => {
       !verification.data ||
       verification.data.data.status !== 'success'
     ) {
-      return res.redirect(
-        `${
-          process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-        }/wallet-callback?status=failed`
-      );
+      return res
+        .status(400)
+        .json({ success: false, message: 'Transaction not successful' });
     }
 
     const userId = verification.data.data.metadata.userId;
     const amount = verification.data.data.amount / 100;
-
+    const redirectUri = verification.data.data.metadata.redirectUri; // ✅ captured from metadata
+    console.log(redirectUri);
     const user = await User.findById(userId);
     if (!user) {
-      return res.redirect(
-        `${
-          process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-        }/wallet-callback?status=failed`
-      );
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
     }
 
     const balanceBefore = user.walletBalance;
@@ -329,19 +328,25 @@ const verifyWalletFunding = async (req, res) => {
       reference,
     });
 
-    // ✅ Redirect back to Expo deep link
-    res.redirect(
-      `${
-        process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-      }/wallet-callback?status=success&amount=${amount}`
-    );
+    // console.log('Redirecting to:', redirectUri);
+
+    // ✅ Redirect to app deep link if available
+    if (redirectUri) {
+      console.log('Redirecting to:', redirectUri);
+      const redirectUrl = `${redirectUri}?status=success&amount=${amount}`;
+      return res.redirect(302, redirectUrl);
+    }
+
+    // ✅ Respond with JSON only — no redirect
+    res.json({
+      success: true,
+      message: 'Wallet funded successfully',
+      amount,
+      walletBalance: user.walletBalance,
+    });
   } catch (error) {
     console.error('Verification error:', error);
-    res.redirect(
-      `${
-        process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-      }/wallet-callback?status=failed`
-    );
+    res.status(500).json({ success: false, message: 'Verification failed' });
   }
 };
 

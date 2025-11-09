@@ -357,6 +357,7 @@ const bookTutor = async (req, res) => {
       sessionType = '1on1',
       duration = 60,
       paymentMethod = 'wallet',
+      redirectUrl, // ✅ added
     } = req.body;
 
     // 🔍 Validate required fields
@@ -440,18 +441,19 @@ const bookTutor = async (req, res) => {
         userId: student._id,
         type: 'debit',
         amount,
-        description: `Booking with tutor ${tutor.firstName || ''} ${
-          tutor.lastName || ''
+        description: `Booking with tutor ${
+          tutor.name || ''
         } for ${courseTitle}`,
         category: 'booking',
         balanceBefore,
         balanceAfter: student.walletBalance,
       });
-      await transaction.save();
 
       // ✅ Confirm booking
       booking.paymentStatus = 'paid';
       booking.status = 'confirmed';
+
+      await transaction.save();
 
       return res.status(200).json({
         success: true,
@@ -464,7 +466,7 @@ const bookTutor = async (req, res) => {
     // 💳 Paystack Payment
     if (paymentMethod === 'paystack') {
       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-
+      const frontendRedirect = redirectUrl || process.env.FRONTEND_DEEP_LINK;
       const paymentData = await paystackService.initializeTransaction({
         email: req.user.email,
         amount,
@@ -474,6 +476,7 @@ const bookTutor = async (req, res) => {
           bookingId: booking._id,
           studentId,
           tutorId,
+          redirectUrl: frontendRedirect, // ✅ store for later redirect
         },
       });
 
@@ -902,7 +905,7 @@ const getPendingBookings = async (req, res) => {
 const verifyBookingPayment = async (req, res) => {
   try {
     const { reference } = req.params;
-    console.log('Verifying booking with reference:', reference);
+    // console.log('Verifying booking with reference:', reference);
 
     // ✅ Verify transaction with Paystack
     const verification = await paystackService.verifyTransaction(reference);
@@ -914,37 +917,33 @@ const verifyBookingPayment = async (req, res) => {
       !verification.data.data ||
       verification.data.data.status !== 'success'
     ) {
-      console.log('Payment verification failed for reference:', reference);
+      // console.log('Payment verification failed for reference:', reference);
       return res.redirect(
         `${
-          process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-        }/booking?status=failed`
+          process.env.FRONTEND_DEEP_LINK || 'eduapp://booking-callback'
+        }?status=failed`
       );
     }
 
     // ✅ Retrieve bookingId from Paystack metadata
     const bookingId = verification.data.data.metadata?.bookingId;
+    const redirectUrl =
+      verification.data.data.metadata?.redirectUrl ||
+      process.env.FRONTEND_DEEP_LINK;
+
     if (!bookingId) {
-      console.log(
-        'No bookingId found in Paystack metadata for reference:',
-        reference
-      );
-      return res.redirect(
-        `${
-          process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-        }/booking?status=failed`
-      );
+      // console.log(
+      //   'No bookingId found in Paystack metadata for reference:',
+      //   reference
+      // );
+      return res.redirect(`${redirectUrl}/booking?status=failed`);
     }
 
     // ✅ Fetch booking by ID
     const booking = await Booking.findById(bookingId);
     if (!booking) {
-      console.log('Booking not found for bookingId:', bookingId);
-      return res.redirect(
-        `${
-          process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-        }/booking?status=failed`
-      );
+      // console.log('Booking not found for bookingId:', bookingId);
+      return res.redirect(`${redirectUrl}/booking?status=failed`);
     }
 
     // ✅ Mark booking as paid
@@ -957,7 +956,7 @@ const verifyBookingPayment = async (req, res) => {
     const student = await User.findById(booking.studentId);
     if (student) {
       // You could update wallet or transaction history here if necessary
-      console.log('Student found:', student._id);
+      // console.log('Student found:', student._id);
 
       const balanceBefore = student.walletBalance;
       // not deducted, since it’s Paystack
@@ -977,18 +976,15 @@ const verifyBookingPayment = async (req, res) => {
     }
 
     // ✅ Redirect back to Expo app
-    const redirectUrl = `${
-      process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-    }/booking?status=success&amount=${booking.amount}&reference=${reference}`;
-
-    console.log('✅ Redirecting user to:', redirectUrl);
-    return res.redirect(redirectUrl);
+    const redirect = `${redirectUrl}?status=success&amount=${booking.amount}&reference=${reference}`;
+    console.log('✅ Redirecting user to:', redirect);
+    return res.redirect(redirect);
   } catch (error) {
     console.error('verifyBookingPayment error:', error);
     return res.redirect(
       `${
-        process.env.FRONTEND_DEEP_LINK || process.env.FRONTEND_URL
-      }/booking?status=failed`
+        process.env.FRONTEND_DEEP_LINK || 'eduapp://booking-callback'
+      }?status=failed`
     );
   }
 };

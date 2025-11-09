@@ -38,6 +38,14 @@ userSchema = new Schema(
       type: String,
       required: true,
     },
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFAEnabled: { type: Boolean, default: false },
+    twoFactorEmailOTP: { type: String, default: null },
+    twoFactorEmailExpires: { type: Date, default: null },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
 
     username: {
       type: String,

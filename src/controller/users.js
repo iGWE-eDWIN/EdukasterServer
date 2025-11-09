@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const Wallet = require('../models/wallet');
 const { formatUser } = require('../utils/formatDetails');
+const { sendEmail } = require('../utils/email');
 
 // Get all users
 const getAllUsers = async (req, res) => {
@@ -81,7 +82,10 @@ const getPendingTutorApprovals = async (req, res) => {
 const approveTutor = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 1️⃣ Find tutor
     const tutor = await User.findById(id);
+    console.log('Approving tutor:', id, tutor?.email);
     if (!tutor) {
       return res.status(404).json({ message: 'Tutor not found' });
     }
@@ -90,18 +94,40 @@ const approveTutor = async (req, res) => {
       return res.status(400).json({ message: 'User is not a tutor' });
     }
 
+    // 2️⃣ Approve tutor in DB
     tutor.isApproved = true;
     await tutor.save();
 
-    // In a real app, send approval email to tutor
-    console.log(`Tutor approved: ${tutor.email}`);
+    console.log(`Tutor approved: ${tutor?.email}`);
 
+    // 3️⃣ Send approval email safely
+    if (tutor?.email) {
+      try {
+        await sendEmail(
+          tutor?.email,
+          'Your tutor application has been approved',
+          `Congratulations ${tutor.name}, your application has been approved.`
+        );
+      } catch (emailError) {
+        console.error(
+          `Failed to send approval email to ${tutor.email}:`,
+          emailError
+        );
+        // Optionally: you could store a flag to retry sending email later
+      }
+    } else {
+      console.warn(`Tutor ${tutor.name} has no email defined. Skipping email.`);
+    }
+
+    // 4️⃣ Return success response
     res.status(200).json({
       message: 'Tutor approved successfully',
       tutor: formatUser(tutor),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Only DB or unexpected errors reach here
+    console.error('Error approving tutor:', error);
+    res.status(500).json({ message: 'Failed to approve tutor' });
   }
 };
 
@@ -126,6 +152,11 @@ const rejectTutor = async (req, res) => {
 
     // In a real app, send rejection email to tutor
     // console.log(`Tutor rejected: ${tutor.email}`);
+    await sendEmail(
+      tutor.email,
+      'Your tutor application has been rejected',
+      `Dear ${tutor.name}, we regret to inform you that your application has been rejected. Reason: ${tutor.rejectionReason}`
+    );
 
     res.status(200).json({
       message: 'Tutor rejected successfully',

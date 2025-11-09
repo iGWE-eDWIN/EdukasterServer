@@ -2,6 +2,7 @@ const User = require('../models/user');
 const paystackService = require('../services/paystackService');
 const bcrypt = require('bcryptjs');
 const { formatUser } = require('../utils/formatDetails');
+const { sendEmail } = require('../utils/email');
 
 // Register user
 const registerUser = async (req, res) => {
@@ -40,34 +41,92 @@ const registerUser = async (req, res) => {
     }
 
     // Create user
-    const userData = {
+    const user = new User({
       email,
       password,
       name,
       username,
       role,
-    };
+      institutionType: institutionType || null,
+      institution: institution || '',
+      isVerified: false,
+    });
+    // const userData = {
+    //   email,
+    //   password,
+    //   name,
+    //   username,
+    //   role,
+    //   isVerified: false
+    // };
 
-    // const user = await new User(userData);
-    // await user.save();
+    // // Only students should have institution details
+    // if (role === 'student') {
+    //   userData.institutionType = institutionType || null;
+    //   userData.institution = institution || '';
+    // }
 
-    // Only students should have institution details
-    if (role === 'student') {
-      userData.institutionType = institutionType || null;
-      userData.institution = institution || '';
-    }
+    // const user = new User(userData);
 
-    const user = new User(userData);
+    // Generate Otp
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+
+    user.twoFactorEmailOTP = otp;
+    user.twoFactorEmailExpires = otpExpires;
     await user.save();
 
-    // Send approval notification for tutors
-    if (role === 'tutor') {
-      // In a real app, you might send an email notification to admin
-      console.log(`New tutor registration pending approval: ${user.email}`);
+    await sendEmail(
+      user.email,
+      'Edukaster Email Verification',
+      `Welcome to Edukaster!\nYour verification code is ${otp}\n\nIt expires in 5 minutes.`
+    );
+
+    res.status(200).json({
+      verificationRequired: true,
+      message: 'OTP sent to your email for verification.',
+      email: user.email,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Verify registration email otp and complete registration
+const verifyEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    // Create Paystack customer for students
-    if (role === 'student') {
+    if (!user.twoFactorEmailOTP || Date.now() > user.twoFactorEmailExpires) {
+      return res.status(400).json({ message: 'OTP expired or not found.' });
+    }
+
+    if (user.twoFactorEmailOTP !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    // Clear OTP fields
+    user.isVerified = true;
+    user.twoFactorEmailOTP = null;
+    user.twoFactorEmailExpires = null;
+
+    // Tutor approval logic
+    if (user.role === 'tutor') {
+      user.isApproved = false; // Tutors need admin approval
+      await sendEmail(
+        user.email,
+        'Tutor Registration Pending Approval',
+        'Your registration as a tutor is pending approval. Contact support for approval.'
+      );
+    }
+
+    // Paystack customer creation for students
+    if (user.role === 'student') {
       try {
         const customerData = await paystackService.createCustomer({
           email: user.email,
@@ -82,17 +141,20 @@ const registerUser = async (req, res) => {
       }
     }
 
+    // Save user updates
+    await user.save();
+
     // ✅ Generate tokens using model method
     const { accessToken, refreshToken } = await user.generateAuthToken();
 
-    res.status(201).json({
-      message: 'User registered successfully',
+    res.status(200).json({
+      message: '2FA login successful',
       user: formatUser(user),
       accessToken,
       refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -100,12 +162,41 @@ const loginUser = async (req, res) => {
   try {
     // console.log(req.body);
     const { email, password } = req.body;
+    // 🧠 Verify credentials
     const user = await User.findByCredentials(email, password);
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
     // Check if account is active
     if (!user.isActive) {
       return res.status(401).json({ message: 'Account is suspended' });
     }
 
+    //Check if 2FA is enabled
+    if (user.twoFactorEnabled) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+
+      user.twoFactorEmailOTP = otp;
+      user.twoFactorEmailExpires = otpExpires;
+      await user.save();
+
+      // Send OTP email
+      await sendEmail(
+        user.email,
+        'Edukaster 2FA Verification',
+        `Your OTP code is ${otp}`
+      );
+
+      // 🟡 Stop here — don't issue tokens yet
+      return res.status(200).json({
+        twoFAEnabled: true,
+        message: '2FA is enabled. Please check your email for the OTP code.',
+      });
+    }
+
+    // ✅ If 2FA not enabled, issue tokens immediately
     // ✅ Generate tokens using model method
     const { accessToken, refreshToken } = await user.generateAuthToken();
 
@@ -116,7 +207,44 @@ const loginUser = async (req, res) => {
       refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || 'Login failed' });
+  }
+};
+
+// verify 2fa login
+const verifyTwoFactorLogin = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (
+      user.twoFactorEmailOTP !== otp ||
+      Date.now() > user.twoFactorEmailExpires
+    ) {
+      return res.status(400).json({ message: 'Invalid OTP', failed });
+    }
+
+    // Clear OTP fields
+    user.twoFactorEmailOTP = null;
+    user.twoFactorEmailExpires = null;
+    await user.save();
+
+    // ✅ Generate tokens using model method
+    const { accessToken, refreshToken } = await user.generateAuthToken();
+
+    res.status(200).json({
+      message: '2FA login successful',
+      user: formatUser(user),
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    console.error('2FA Verify Login Error:', error);
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -151,6 +279,87 @@ const refreshToken = async (req, res) => {
     res
       .status(500)
       .json({ message: error.message || 'Failed to refresh token' });
+  }
+};
+
+// enable 2fa via email otp
+const enableTwoFactorEmail = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
+
+    user.twoFactorEmailOTP = otp;
+    user.twoFactorEmailExpires = otpExpires;
+    await user.save();
+
+    // Send OTP email
+    await sendEmail(
+      user.email,
+      'Edukaster 2FA Verification',
+      `Your OTP code is ${otp}`
+    );
+
+    res.status(200).json({ message: 'OTP sent to email' });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+// verify 2fa via email otp
+const verifyTwoFactorEmail = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { otp } = req.body;
+    console.log(otp);
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (
+      !user.twoFactorEmailOTP ||
+      user.twoFactorEmailOTP !== otp ||
+      Date.now() > user.twoFactorEmailExpires
+    ) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    user.twoFactorEnabled = true;
+    user.twoFAEnabled = true;
+    user.twoFactorEmailOTP = null;
+    user.twoFactorEmailExpires = null;
+    await user.save();
+
+    res.status(200).json({ message: '2FA enabled successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+};
+
+// disable 2fa via email otp
+const disableTwoFactorEmail = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.twoFactorEmailEnabled = false;
+    user.twoFactorEmailOTP = null;
+    user.twoFactorEmailExpires = null;
+    await user.save();
+
+    res.status(200).json({ message: '2FA disabled successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 };
 
@@ -288,4 +497,9 @@ module.exports = {
   getCurrentUser,
   changePassword,
   updateProfile,
+  enableTwoFactorEmail,
+  verifyTwoFactorEmail,
+  disableTwoFactorEmail,
+  verifyTwoFactorLogin,
+  verifyEmail,
 };
