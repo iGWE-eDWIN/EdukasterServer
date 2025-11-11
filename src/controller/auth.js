@@ -559,6 +559,7 @@ const disableTwoFactorEmail = async (req, res) => {
     }
 
     user.twoFactorEmailEnabled = false;
+    user.twoFAEnabled = false;
     user.twoFactorEmailOTP = null;
     user.twoFactorEmailExpires = null;
     await user.save();
