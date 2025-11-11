@@ -558,7 +558,7 @@ const disableTwoFactorEmail = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.twoFactorEmailEnabled = false;
+    user.twoFactorEnabled = false;
     user.twoFAEnabled = false;
     user.twoFactorEmailOTP = null;
     user.twoFactorEmailExpires = null;
