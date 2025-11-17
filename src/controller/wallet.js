@@ -181,7 +181,7 @@ const fundWallet = async (req, res) => {
   try {
     const id = req.user._id;
     const { amount, redirectUri } = req.body;
-    console.log(redirectUri);
+    // console.log(redirectUri);
 
     if (!amount || amount < 100) {
       return res
@@ -321,7 +321,7 @@ const verifyWalletFunding = async (req, res) => {
       userId: user._id,
       type: 'credit',
       amount,
-      description: 'Wallet funding via Paystack',
+      description: 'Wallet funding via Paystack ',
       category: 'funding',
       balanceBefore,
       balanceAfter: user.walletBalance,
@@ -332,9 +332,29 @@ const verifyWalletFunding = async (req, res) => {
 
     // ✅ Redirect to app deep link if available
     if (redirectUri) {
-      console.log('Redirecting to:', redirectUri);
+      console.log(redirectUri);
+      // console.log('Redirecting to:', redirectUri);
       const redirectUrl = `${redirectUri}?status=success&amount=${amount}`;
       return res.redirect(302, redirectUrl);
+
+      // const redirectUrl = `${redirectUri}?status=success&amount=${amount}`;
+
+      //     return res.send(`
+      //   <html>
+      //     <body>
+      //       <script>
+      //         // Try opening deep link
+      //         window.location.href = "${redirectUrl}";
+
+      //         // Fallback after 1.5s
+      //         setTimeout(() => {
+      //           window.location.href = "https://edukaster.com/wallet-success";
+      //         }, 1500);
+      //       </script>
+      //       <p>Redirecting...</p>
+      //     </body>
+      //   </html>
+      // `);
     }
 
     // ✅ Respond with JSON only — no redirect

@@ -466,7 +466,7 @@ const bookTutor = async (req, res) => {
     // 💳 Paystack Payment
     if (paymentMethod === 'paystack') {
       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-      const frontendRedirect = redirectUrl || process.env.FRONTEND_DEEP_LINK;
+      const frontendRedirect = redirectUrl;
       const paymentData = await paystackService.initializeTransaction({
         email: req.user.email,
         amount,
@@ -919,18 +919,14 @@ const verifyBookingPayment = async (req, res) => {
     ) {
       // console.log('Payment verification failed for reference:', reference);
       return res.redirect(
-        `${
-          process.env.FRONTEND_DEEP_LINK || 'eduapp://booking-callback'
-        }?status=failed`
+        `${process.env.FRONTEND_DEEP_LINK || 'eduapp://booking'}?status=failed`
       );
     }
 
     // ✅ Retrieve bookingId from Paystack metadata
     const bookingId = verification.data.data.metadata?.bookingId;
-    const redirectUrl =
-      verification.data.data.metadata?.redirectUrl ||
-      process.env.FRONTEND_DEEP_LINK;
-
+    const redirectUrl = verification.data.data.metadata?.redirectUrl;
+    console.log(redirectUrl);
     if (!bookingId) {
       // console.log(
       //   'No bookingId found in Paystack metadata for reference:',
@@ -965,7 +961,7 @@ const verifyBookingPayment = async (req, res) => {
         userId: student._id,
         type: 'debit',
         amount: booking.amount,
-        description: `Booking payment for tutor`,
+        description: `Booking payment for tutor `,
         category: 'booking',
         balanceBefore,
         balanceAfter: balanceBefore,
@@ -982,9 +978,7 @@ const verifyBookingPayment = async (req, res) => {
   } catch (error) {
     console.error('verifyBookingPayment error:', error);
     return res.redirect(
-      `${
-        process.env.FRONTEND_DEEP_LINK || 'eduapp://booking-callback'
-      }?status=failed`
+      `${process.env.FRONTEND_DEEP_LINK || 'eduapp://booking'}?status=failed`
     );
   }
 };

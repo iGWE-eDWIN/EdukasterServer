@@ -262,11 +262,39 @@ const verifyEmail = async (req, res) => {
     // Tutor approval or Paystack creation
     if (user.role === 'tutor') {
       user.isApproved = false;
-      await sendEmail(
-        user.email,
-        'Tutor Registration Pending Approval',
-        'Your registration as a tutor is pending approval. Contact support for approval.'
-      );
+
+      const html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Tutor Registration Pending</h2>
+      
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        Hello 👋,
+        <br/><br/>
+        Thank you for registering as a tutor on <strong>Edukaster</strong>.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        Your account is currently <strong>pending approval</strong>. Our review team is verifying your details.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        You will receive another email once your tutor account is approved.
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+
+    </div>
+  </div>
+`;
+      await sendEmail(user.email, 'Tutor Registration Pending Approval', html);
     }
 
     if (user.role === 'student') {
@@ -345,11 +373,44 @@ const registerUser = async (req, res) => {
     setTimeout(() => tempUsers.delete(email), 19 * 60 * 1000);
 
     // Send OTP via email
-    sendEmail(
-      email,
-      'Edukaster Email Verification',
-      `Welcome to Edukaster!\nYour verification code is ${otp}\n\nIt expires in 5 minutes.`
-    )
+
+    const html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Verify Your Email</h2>
+      
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Welcome to <strong>Edukaster</strong> 🎓  
+        We're excited to have you on board!
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Your verification code is:
+      </p>
+
+      <div style="text-align: center; margin: 25px 0;">
+        <div style="display: inline-block; background: #ff7a00; color: white; padding: 12px 25px; font-size: 22px; border-radius: 6px; letter-spacing: 3px;">
+          <strong>${otp}</strong>
+        </div>
+      </div>
+
+      <p style="font-size: 14px; color: #f6f6f6;">
+        This code will expire in <strong>5 minutes</strong>.
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+
+    sendEmail(email, 'Edukaster Email Verification', html)
       .then(() => console.log(`✅ Verification email sent to ${email}`))
       .catch((err) => console.error('❌ Failed to send email:', err.message));
 
@@ -370,6 +431,7 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
     // 🧠 Verify credentials
     const user = await User.findByCredentials(email, password);
+    // console.log(user);
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -389,11 +451,47 @@ const loginUser = async (req, res) => {
       await user.save();
 
       // Send OTP email
-      await sendEmail(
-        user.email,
-        'Edukaster 2FA Verification',
-        `Your OTP code is ${otp}`
-      );
+
+      const html = `
+  <div style="font-family: Arial, sans-serif; background: #0B0447; padding:20px;">
+    <div style="max-width:520px; margin:20px auto; background: ; border-radius:10px; padding:26px; box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+      
+      <div style="text-align:center; margin-bottom:18px;">
+        <img src="cid:edukaster-logo" alt="Edukaster" style="width:140px; max-width:60%;" />
+      </div>
+
+      <h2 style="color: #ffffff; text-align:center; margin:6px 0 12px;">Edukaster 2FA Verification</h2>
+
+      <p style="font-size:15px; color: #ffffff; text-align:center; line-height:1.6; margin:0 0 18px;">
+        Use the verification code below to complete your login.
+      </p>
+
+      <div style="text-align:center; margin:20px 0;">
+        <div style="
+          display:inline-block;
+          background: #ff7a00;
+          padding:12px 28px;
+          border-radius:8px;
+          font-weight:700;
+          font-size:28px;
+          letter-spacing:6px;
+          color: #ffffff;
+        ">
+          ${otp}
+        </div>
+      </div>
+
+      <p style="font-size:14px; color: #ffffff; text-align:center; margin:10px 0 0;">
+        This code will expire in <strong>5 minutes</strong>. If you didn't request this, please ignore this email.
+      </p>
+
+      <p style="font-size:13px; color: #ffffff; text-align:center; margin:22px 0 0;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+      await sendEmail(user.email, 'Edukaster 2FA Verification', html);
 
       // 🟡 Stop here — don't issue tokens yet
       return res.status(200).json({
@@ -416,6 +514,8 @@ const loginUser = async (req, res) => {
     res.status(500).json({ message: error.message || 'Login failed' });
   }
 };
+
+// background: #0B0447
 
 // verify 2fa login
 const verifyTwoFactorLogin = async (req, res) => {
@@ -505,11 +605,51 @@ const enableTwoFactorEmail = async (req, res) => {
     await user.save();
 
     // Send OTP email
-    await sendEmail(
-      user.email,
-      'Edukaster 2FA Verification',
-      `Your OTP code is ${otp}`
-    );
+
+    const html = `
+<div style="font-family: Arial, sans-serif; padding:20px;">
+  <div style="max-width:500px; margin:auto; background: #0B0447; border-radius:10px; padding:30px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+    <div style="text-align:center; ">
+      <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width:120px; margin-bottom:20px;" />
+    </div>
+
+    <h2 style="color: #f7f7f7; text-align:center; margin-bottom:10px;">
+      Edukaster 2FA Verification
+    </h2>
+
+    <p style="font-size:15px; color: #f7f7f7; text-align:center; line-height:1.6;">
+      Use the verification code below to enable 2FA.
+    </p>
+
+    <div style="text-align:center; margin:25px 0;">
+      <div style="
+        display:inline-block;
+        font-size:32px;
+        letter-spacing:8px;
+        font-weight:bold;
+        color: #f7f7f7;
+        background: #ED7B00;
+        padding:12px 25px;
+        border-radius:8px;
+      ">
+        ${otp}
+      </div>
+    </div>
+
+    <p style="font-size:14px; color: #f7f7f7; line-height:1.6;">
+      This OTP will expire in <strong>5 minutes</strong>.  
+      If you did not request this code, please ignore this email.
+    </p>
+
+    <p style="font-size:13px; color: #f7f7f7; text-align:center; margin-top:30px;">
+      © ${new Date().getFullYear()} Edukaster. All rights reserved.
+    </p>
+  </div>
+</div>
+`;
+
+    await sendEmail(user.email, 'Edukaster 2FA Verification', html);
 
     res.status(200).json({ message: 'OTP sent to email' });
   } catch (error) {

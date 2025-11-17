@@ -22,11 +22,20 @@ userSchema = new Schema(
     password: {
       type: String,
       required: true,
-      minlength: [6, 'Password must be at least 6 characters'],
+      minlength: [8, 'Password must be at least 8 characters'],
       trim: true,
       validate(value) {
+        const strongPasswordRegex =
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-={}[\]|;:'",.<>/?]).{8,}$/;
+
+        if (!strongPasswordRegex.test(value)) {
+          throw new Error(
+            'Password must contain uppercase, lowercase, number, special symbol and be at least 8 characters'
+          );
+        }
+
         if (value.toLowerCase().includes('password')) {
-          throw new Error(`Password can not contain 'Password'`);
+          throw new Error("Password cannot contain the word 'password'");
         }
       },
     },
@@ -38,6 +47,16 @@ userSchema = new Schema(
       type: String,
       required: true,
     },
+
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
+
     twoFactorEnabled: { type: Boolean, default: false },
     twoFAEnabled: { type: Boolean, default: false },
     twoFactorEmailOTP: { type: String, default: null },
@@ -47,9 +66,19 @@ userSchema = new Schema(
       default: false,
     },
 
+    // username: {
+    //   type: String,
+    //   required: true,
+    //   unique: true,
+    //   trim: true,
+    //   minlength: [3, 'Username must be at least 3 characters long'],
+    // },
+
     username: {
       type: String,
-      required: true,
+      required: function () {
+        return this.role !== 'admin'; // username required ONLY for non-admins
+      },
       unique: true,
       trim: true,
       minlength: [3, 'Username must be at least 3 characters long'],
@@ -235,12 +264,43 @@ userSchema.methods.generateAuthToken = async function () {
 userSchema.statics.findByCredentials = async (email, password) => {
   const user = await User.findOne({ email });
 
-  if (!user) throw new Error('User not found');
+  // if (!user) throw new Error('User not found');
+  if (!user) throw new Error('Invalid email or password');
+
+  // check if user is locked
+  if (user.isLocked()) {
+    const remaining = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60); // minutes
+    throw new Error(`Too many attempts. Try again in ${remaining} minutes.`);
+  }
 
   const isMatch = await bcrypt.compare(password, user.password);
   // console.log(user.password);
   // console.log(isMatch);
-  if (!isMatch) throw new Error('Unable to login');
+  // if (!isMatch) throw new Error('Unable to login');
+  if (!isMatch) {
+    // increament failed attempts
+    user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+
+    // Lock aacount if 6+ failed attempts
+
+    if (user.failedLoginAttempts >= 6) {
+      user.lockUntil = Date.now() + 10 * 60 * 1000; // 10 minutes
+      await user.save();
+      throw new Error('Too many attempts. Account locked for 10 minutes.');
+    }
+
+    await user.save();
+
+    const attemptsLeft = 6 - user.failedLoginAttempts;
+    throw new Error(
+      `Invalid email or password. ${attemptsLeft} attempt(s) left.`
+    );
+  }
+
+  // password correct - reset attempts
+  user.failedLoginAttempts = 0;
+  user.lockUntil = null;
+  await user.save();
 
   return user;
 };
@@ -338,6 +398,10 @@ userSchema.pre('findOneAndUpdate', function (next) {
 
   next();
 });
+
+userSchema.methods.isLocked = function () {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
 
 const User = model('User', userSchema);
 

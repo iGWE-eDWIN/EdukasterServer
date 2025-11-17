@@ -101,12 +101,42 @@ const approveTutor = async (req, res) => {
     console.log(`Tutor approved: ${tutor?.email}`);
 
     // 3️⃣ Send approval email safely
+
     if (tutor?.email) {
       try {
+        const html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      
+      <div style="text-align: center; margin-bottom: 20px">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Application Approved</h2>
+      
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        Hello <strong>${tutor?.name}</strong>, 🎉
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        Congratulations! Your tutor application on <strong>Edukaster</strong> has been approved.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6; line-height: 1.5;">
+        You can now log into your dashboard and start tutoring students.
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+
+    </div>
+  </div>
+`;
         await sendEmail(
           tutor?.email,
           'Your tutor application has been approved',
-          `Congratulations ${tutor.name}, your application has been approved.`
+          html
         );
       } catch (emailError) {
         console.error(

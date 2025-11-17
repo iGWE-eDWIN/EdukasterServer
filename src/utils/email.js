@@ -1,5 +1,6 @@
 // utils/email.js
 const nodemailer = require('nodemailer');
+const path = require('path');
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'mail.edukaster.com',
@@ -14,12 +15,20 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function sendEmail(to, subject, text) {
+async function sendEmail(to, subject, html) {
   await transporter.sendMail({
     from: `"Edukaster" <${process.env.EMAIL_USER}>`,
     to,
     subject,
-    text,
+    html,
+    encoding: 'utf-8',
+    attachments: [
+      {
+        filename: 'logo.png',
+        path: path.join(__dirname, 'logo.png'), // Put the uploaded image here
+        cid: 'edukaster-logo', // Use this in the HTML <img src="cid:edukaster-logo" />
+      },
+    ],
   });
 }
 
