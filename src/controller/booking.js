@@ -2,11 +2,13 @@ const mongoose = require('mongoose');
 const Booking = require('../models/booking');
 const User = require('../models/user');
 const Wallet = require('../models/wallet');
+const Session = require('../models/session');
 const { isOverlap, buildSlotsForDate } = require('../utils/bookingUtils');
 const paystackService = require('../services/paystackService');
 const NotificationService = require('../services/notificationService');
-const fs = require('fs');
-const path = require('path');
+// const fs = require('fs');
+// const path = require('path');
+const { computeShares } = require('../utils/payment');
 
 const getTutorAvailability = async (req, res) => {
   try {
@@ -71,11 +73,260 @@ const getTutorAvailability = async (req, res) => {
   }
 };
 
+const bookTutor = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    const {
+      tutorId,
+      courseTitle,
+      scheduledDate,
+      sessionType = '1on1',
+      duration = 60,
+      paymentMethod = 'wallet',
+      redirectUrl,
+    } = req.body;
+
+    if (!tutorId || !scheduledDate || !courseTitle) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const tutor = await User.findById(tutorId);
+    if (!tutor || tutor.role !== 'tutor') {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    const amount =
+      tutor.fees?.totalFee ||
+      (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid tutor fee' });
+    }
+
+    // 💳 Wallet Payment (instant)
+    if (paymentMethod === 'wallet') {
+      const student = await User.findById(studentId);
+
+      if (!student || student.walletBalance < amount) {
+        return res.status(402).json({ message: 'Insufficient wallet balance' });
+      }
+
+      const requestedStart = new Date(scheduledDate);
+      const requestedEnd = new Date(
+        requestedStart.getTime() + duration * 60000
+      );
+
+      // Check overlapping bookings
+      const bookingsThatDay = await Booking.find({
+        tutorId,
+        status: { $in: ['pending', 'confirmed'] },
+      });
+
+      const collides = bookingsThatDay.some((b) => {
+        const bStart = new Date(b.scheduledDate);
+        const bEnd = new Date(bStart.getTime() + b.duration * 60000);
+        return requestedStart < bEnd && requestedEnd > bStart;
+      });
+
+      if (collides) {
+        return res
+          .status(400)
+          .json({ message: 'Requested slot already booked' });
+      }
+
+      // Deduct wallet
+      const balanceBefore = student.walletBalance;
+      student.walletBalance -= amount;
+      await student.save();
+
+      const booking = await Booking.create({
+        studentId,
+        tutorId,
+        courseTitle,
+        scheduledDate: requestedStart,
+        duration,
+        amount,
+        sessionType,
+        paymentMethod: 'wallet',
+        status: 'confirmed',
+        paymentStatus: 'paid',
+      });
+
+      // Wallet transaction
+      await Wallet.create({
+        userId: student._id,
+        type: 'debit',
+        amount,
+        description: `Booking with tutor ${tutor.name} for ${courseTitle}`,
+        category: 'booking',
+        balanceBefore,
+        balanceAfter: student.walletBalance,
+      });
+
+      // Create session
+      const { tutorShare, adminShare } = computeShares(amount, tutor);
+      await Session.create({
+        bookingId: booking._id,
+        tutorId,
+        studentId,
+        scheduledDate: requestedStart,
+        duration,
+        amount,
+        tutorShare,
+        adminShare,
+        status: 'scheduled',
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Booking confirmed via wallet',
+        booking,
+        walletBalance: student.walletBalance,
+      });
+    }
+
+    // 💳 Paystack Payment (deferred booking)
+    if (paymentMethod === 'paystack') {
+      const reference = paystackService.generateReference();
+      const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
+
+      const paymentData = await paystackService.initializeTransaction({
+        email: req.user.email,
+        amount,
+        reference,
+        callback_url: callbackUrl,
+        metadata: {
+          studentId,
+          tutorId,
+          courseTitle,
+          scheduledDate,
+          duration,
+          sessionType,
+          amount,
+          redirectUrl,
+        },
+      });
+
+      if (!paymentData.success) {
+        return res.status(400).json({ message: paymentData.message });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Booking initialized. Complete payment via Paystack',
+        authorization_url: paymentData.data.data.authorization_url,
+        reference,
+      });
+    }
+
+    return res.status(400).json({ message: 'Invalid payment method' });
+  } catch (err) {
+    console.error('bookTutor error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const verifyBookingPayment = async (req, res) => {
+  try {
+    const { reference } = req.params;
+
+    const verification = await paystackService.verifyTransaction(reference);
+    if (
+      !verification.success ||
+      !verification.data?.data ||
+      verification.data.data.status !== 'success'
+    ) {
+      const redirectFail =
+        verification?.data?.data?.metadata?.redirectUrl || '/';
+      return res.redirect(`${redirectFail}?status=failed`);
+    }
+
+    const meta = verification.data.data.metadata;
+    const {
+      studentId,
+      tutorId,
+      courseTitle,
+      scheduledDate,
+      duration,
+      sessionType,
+      amount,
+      redirectUrl,
+    } = meta;
+
+    // Create booking only after successful payment
+    const requestedStart = new Date(scheduledDate);
+
+    const booking = await Booking.create({
+      studentId,
+      tutorId,
+      courseTitle,
+      scheduledDate: requestedStart,
+      duration,
+      sessionType,
+      amount,
+      paymentMethod: 'paystack',
+      status: 'confirmed',
+      paymentStatus: 'paid',
+      paystackReference: reference,
+    });
+
+    // Create session
+    const tutor = await User.findById(tutorId);
+    const { tutorShare, adminShare } = computeShares(amount, tutor);
+    await Session.create({
+      bookingId: booking._id,
+      tutorId,
+      studentId,
+      scheduledDate: requestedStart,
+      duration,
+      amount,
+      tutorShare,
+      adminShare,
+      status: 'scheduled',
+    });
+
+    // Optional: wallet transaction record
+    await Wallet.create({
+      userId: studentId,
+      type: 'debit',
+      amount,
+      description: `Booking payment for tutor ${tutor?.name}`,
+      category: 'booking',
+      balanceBefore: 0,
+      balanceAfter: 0,
+      paymentMethod: 'paystack',
+    });
+
+    // ✅ Redirect back to mobile/web app
+    const redirect = `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`;
+    console.log('Redirecting to:', redirect);
+    return res.redirect(redirect);
+  } catch (err) {
+    console.error('verifyBookingPayment error:', err);
+    return res.status(500).send('Payment verification failed');
+  }
+};
+
+const getPendingBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      status: 'confirmed',
+      adminConfirmed: { $ne: true },
+    })
+      .populate('studentId', 'name email avatar')
+      .populate('tutorId', 'name email avatar')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: bookings.length, bookings });
+  } catch (err) {
+    console.error('getPendingBookings error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // const bookTutor = async (req, res) => {
-//   const session = await mongoose.startSession();
 //   try {
 //     const studentId = req.user._id;
-
 //     const {
 //       tutorId,
 //       courseTitle,
@@ -83,8 +334,10 @@ const getTutorAvailability = async (req, res) => {
 //       sessionType = '1on1',
 //       duration = 60,
 //       paymentMethod = 'wallet',
+//       redirectUrl, // ✅ added
 //     } = req.body;
 
+//     // 🔍 Validate required fields
 //     if (!tutorId || !scheduledDate || !courseTitle) {
 //       return res.status(400).json({ message: 'Missing required fields' });
 //     }
@@ -94,159 +347,26 @@ const getTutorAvailability = async (req, res) => {
 //       return res.status(400).json({ message: 'Invalid scheduledDate' });
 //     }
 
+//     // 🎓 Check tutor
 //     const tutor = await User.findById(tutorId);
 //     if (!tutor || tutor.role !== 'tutor') {
 //       return res.status(404).json({ message: 'Tutor not found' });
 //     }
 
-//     // compute amount
+//     // 💰 Compute amount
 //     const amount =
 //       tutor.fees?.totalFee ||
 //       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+
 //     if (!amount || amount <= 0) {
 //       return res.status(400).json({ message: 'Invalid tutor fee' });
 //     }
 
+//     // ⏰ Prepare times
 //     const requestedStart = new Date(scheduled);
 //     const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
 
-//     // Check for overlap
-//     const bookingsThatDay = await Booking.find({
-//       tutorId,
-//       status: { $in: ['pending', 'confirmed'] },
-//     });
-
-//     const collides = bookingsThatDay.some((b) => {
-//       const bStart = new Date(b.scheduledDate);
-//       const bEnd = new Date(bStart.getTime() + b.duration * 60000);
-//       return isOverlap
-//         ? isOverlap(requestedStart, requestedEnd, bStart, bEnd)
-//         : requestedStart < bEnd && requestedEnd > bStart;
-//     });
-
-//     if (collides) {
-//       return res.status(400).json({ message: 'Requested slot already booked' });
-//     }
-//     // Start transaction
-//     await session.withTransaction(async () => {
-//       const reference = paystackService.generateReference();
-
-//       const [booking] = await Booking.create(
-//         [
-//           {
-//             studentId,
-//             tutorId,
-//             courseTitle,
-//             scheduledDate: requestedStart,
-//             duration,
-//             amount,
-//             sessionType,
-//             paymentMethod,
-//             reference,
-//             status: 'pending',
-//             paymentStatus: 'pending',
-//           },
-//         ],
-//         { session }
-//       );
-
-//       // 💳 Handle Wallet Payment
-//       if (paymentMethod === 'wallet') {
-//         const student = await User.findById(studentId).session(session);
-
-//         if (student.walletBalance < amount) {
-//           return res
-//             .status(402)
-//             .json({ message: 'Insufficient wallet balance', booking });
-//         }
-
-//         student.walletBalance -= amount;
-//         await student.save({ session });
-
-//         booking.paymentStatus = 'paid';
-//         booking.status = 'confirmed';
-//         await booking.save({ session });
-//       }
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Booking confirmed via wallet',
-//         booking,
-//       });
-//     });
-
-//     // 💳 Handle Paystack Payment
-//     if (paymentMethod === 'paystack') {
-//       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-//       const paymentData = await paystackService.initializeTransaction({
-//         email: req.user.email,
-//         amount,
-//         reference,
-//         callback_url: callbackUrl,
-//         metadata: {
-//           bookingId: booking._id,
-//           studentId,
-//           tutorId,
-//         },
-//       });
-
-//       if (!paymentData.success) {
-//         return res.status(400).json({ message: paymentData.message });
-//       }
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Booking initialized for Paystack payment',
-//         booking,
-//         authorization_url: paymentData.data.data.authorization_url,
-//         reference,
-//       });
-//     }
-//   } catch (error) {
-//     console.error('bookTutor error:', err);
-//     res.status(500).json({ message: err.message });
-//   } finally {
-//     session.endSession();
-//   }
-// };
-
-// const bookTutor = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   try {
-//     const studentId = req.user._id;
-//     const {
-//       tutorId,
-//       courseTitle,
-//       scheduledDate,
-//       sessionType = '1on1',
-//       duration = 60,
-//       paymentMethod = 'wallet',
-//     } = req.body;
-
-//     if (!tutorId || !scheduledDate || !courseTitle) {
-//       return res.status(400).json({ message: 'Missing required fields' });
-//     }
-
-//     const scheduled = new Date(scheduledDate);
-//     if (isNaN(scheduled.getTime())) {
-//       return res.status(400).json({ message: 'Invalid scheduledDate' });
-//     }
-
-//     const tutor = await User.findById(tutorId);
-//     if (!tutor || tutor.role !== 'tutor') {
-//       return res.status(404).json({ message: 'Tutor not found' });
-//     }
-
-//     const amount =
-//       tutor.fees?.totalFee ||
-//       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
-//     if (!amount || amount <= 0) {
-//       return res.status(400).json({ message: 'Invalid tutor fee' });
-//     }
-
-//     const requestedStart = new Date(scheduled);
-//     const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
-
+//     // 🕒 Check for overlapping bookings
 //     const bookingsThatDay = await Booking.find({
 //       tutorId,
 //       status: { $in: ['pending', 'confirmed'] },
@@ -262,59 +382,68 @@ const getTutorAvailability = async (req, res) => {
 //       return res.status(400).json({ message: 'Requested slot already booked' });
 //     }
 
-//     let booking; // 👈 declare here so it's visible outside transaction
+//     // 📦 Create booking
 //     const reference = paystackService.generateReference();
-
-//     // 🔄 Transaction block
-//     await session.withTransaction(async () => {
-//       [booking] = await Booking.create(
-//         [
-//           {
-//             studentId,
-//             tutorId,
-//             courseTitle,
-//             scheduledDate: requestedStart,
-//             duration,
-//             amount,
-//             sessionType,
-//             paymentMethod,
-//             reference,
-//             status: 'pending',
-//             paymentStatus: 'pending',
-//           },
-//         ],
-//         { session }
-//       );
-
-//       // 💳 Wallet Payment
-//       if (paymentMethod === 'wallet') {
-//         const student = await User.findById(studentId).session(session);
-
-//         if (student.walletBalance < amount) {
-//           return res
-//             .status(402)
-//             .json({ message: 'Insufficient wallet balance', booking });
-//         }
-
-//         student.walletBalance -= amount;
-//         await student.save({ session });
-
-//         booking.paymentStatus = 'paid';
-//         booking.status = 'confirmed';
-//         await booking.save({ session });
-
-//         return res.status(200).json({
-//           success: true,
-//           message: 'Booking confirmed via wallet',
-//           booking,
-//         });
-//       }
+//     const booking = await Booking.create({
+//       studentId,
+//       tutorId,
+//       courseTitle,
+//       scheduledDate: requestedStart,
+//       duration,
+//       amount,
+//       sessionType,
+//       paymentMethod,
+//       reference,
+//       status: 'pending',
+//       paymentStatus: 'pending',
 //     });
 
-//     // 💳 Paystack Payment (runs after transaction)
+//     // 💳 Wallet Payment
+//     if (paymentMethod === 'wallet') {
+//       const student = await User.findById(studentId);
+
+//       if (!student || student.walletBalance < amount) {
+//         return res
+//           .status(402)
+//           .json({ message: 'Insufficient wallet balance', booking });
+//       }
+
+//       // 💵 Deduct from wallet
+//       const balanceBefore = student.walletBalance;
+//       student.walletBalance -= amount;
+//       await student.save();
+
+//       // 💼 Create wallet transaction
+//       const transaction = new Wallet({
+//         userId: student._id,
+//         type: 'debit',
+//         amount,
+//         description: `Booking with tutor ${
+//           tutor.name || ''
+//         } for ${courseTitle}`,
+//         category: 'booking',
+//         balanceBefore,
+//         balanceAfter: student.walletBalance,
+//       });
+
+//       // ✅ Confirm booking
+//       booking.paymentStatus = 'paid';
+//       booking.status = 'confirmed';
+
+//       await transaction.save();
+
+//       return res.status(200).json({
+//         success: true,
+//         message: 'Booking confirmed via wallet',
+//         booking,
+//         walletBalance: student.walletBalance,
+//       });
+//     }
+
+//     // 💳 Paystack Payment
 //     if (paymentMethod === 'paystack') {
 //       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-
+//       const frontendRedirect = redirectUrl;
 //       const paymentData = await paystackService.initializeTransaction({
 //         email: req.user.email,
 //         amount,
@@ -324,13 +453,14 @@ const getTutorAvailability = async (req, res) => {
 //           bookingId: booking._id,
 //           studentId,
 //           tutorId,
+//           redirectUrl: frontendRedirect, // ✅ store for later redirect
 //         },
 //       });
 
 //       if (!paymentData.success) {
 //         return res.status(400).json({ message: paymentData.message });
 //       }
-
+//       await booking.save();
 //       return res.status(200).json({
 //         success: true,
 //         message: 'Booking initialized for Paystack payment',
@@ -339,167 +469,14 @@ const getTutorAvailability = async (req, res) => {
 //         reference,
 //       });
 //     }
+
+//     // ⚠️ Default fallback
+//     return res.status(400).json({ message: 'Invalid payment method' });
 //   } catch (err) {
 //     console.error('bookTutor error:', err);
 //     res.status(500).json({ message: err.message });
-//   } finally {
-//     session.endSession();
 //   }
 // };
-
-const bookTutor = async (req, res) => {
-  try {
-    const studentId = req.user._id;
-    const {
-      tutorId,
-      courseTitle,
-      scheduledDate,
-      sessionType = '1on1',
-      duration = 60,
-      paymentMethod = 'wallet',
-      redirectUrl, // ✅ added
-    } = req.body;
-
-    // 🔍 Validate required fields
-    if (!tutorId || !scheduledDate || !courseTitle) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const scheduled = new Date(scheduledDate);
-    if (isNaN(scheduled.getTime())) {
-      return res.status(400).json({ message: 'Invalid scheduledDate' });
-    }
-
-    // 🎓 Check tutor
-    const tutor = await User.findById(tutorId);
-    if (!tutor || tutor.role !== 'tutor') {
-      return res.status(404).json({ message: 'Tutor not found' });
-    }
-
-    // 💰 Compute amount
-    const amount =
-      tutor.fees?.totalFee ||
-      (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Invalid tutor fee' });
-    }
-
-    // ⏰ Prepare times
-    const requestedStart = new Date(scheduled);
-    const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
-
-    // 🕒 Check for overlapping bookings
-    const bookingsThatDay = await Booking.find({
-      tutorId,
-      status: { $in: ['pending', 'confirmed'] },
-    });
-
-    const collides = bookingsThatDay.some((b) => {
-      const bStart = new Date(b.scheduledDate);
-      const bEnd = new Date(bStart.getTime() + b.duration * 60000);
-      return requestedStart < bEnd && requestedEnd > bStart;
-    });
-
-    if (collides) {
-      return res.status(400).json({ message: 'Requested slot already booked' });
-    }
-
-    // 📦 Create booking
-    const reference = paystackService.generateReference();
-    const booking = await Booking.create({
-      studentId,
-      tutorId,
-      courseTitle,
-      scheduledDate: requestedStart,
-      duration,
-      amount,
-      sessionType,
-      paymentMethod,
-      reference,
-      status: 'pending',
-      paymentStatus: 'pending',
-    });
-
-    // 💳 Wallet Payment
-    if (paymentMethod === 'wallet') {
-      const student = await User.findById(studentId);
-
-      if (!student || student.walletBalance < amount) {
-        return res
-          .status(402)
-          .json({ message: 'Insufficient wallet balance', booking });
-      }
-
-      // 💵 Deduct from wallet
-      const balanceBefore = student.walletBalance;
-      student.walletBalance -= amount;
-      await student.save();
-
-      // 💼 Create wallet transaction
-      const transaction = new Wallet({
-        userId: student._id,
-        type: 'debit',
-        amount,
-        description: `Booking with tutor ${
-          tutor.name || ''
-        } for ${courseTitle}`,
-        category: 'booking',
-        balanceBefore,
-        balanceAfter: student.walletBalance,
-      });
-
-      // ✅ Confirm booking
-      booking.paymentStatus = 'paid';
-      booking.status = 'confirmed';
-
-      await transaction.save();
-
-      return res.status(200).json({
-        success: true,
-        message: 'Booking confirmed via wallet',
-        booking,
-        walletBalance: student.walletBalance,
-      });
-    }
-
-    // 💳 Paystack Payment
-    if (paymentMethod === 'paystack') {
-      const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-      const frontendRedirect = redirectUrl;
-      const paymentData = await paystackService.initializeTransaction({
-        email: req.user.email,
-        amount,
-        reference,
-        callback_url: callbackUrl,
-        metadata: {
-          bookingId: booking._id,
-          studentId,
-          tutorId,
-          redirectUrl: frontendRedirect, // ✅ store for later redirect
-        },
-      });
-
-      if (!paymentData.success) {
-        return res.status(400).json({ message: paymentData.message });
-      }
-      await booking.save();
-      return res.status(200).json({
-        success: true,
-        message: 'Booking initialized for Paystack payment',
-        booking,
-        authorization_url: paymentData.data.data.authorization_url,
-        reference,
-      });
-    }
-
-    // ⚠️ Default fallback
-    return res.status(400).json({ message: 'Invalid payment method' });
-  } catch (err) {
-    console.error('bookTutor error:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
 
 // const getPendingBookings = async (req, res) => {
 //   try {
@@ -835,153 +812,182 @@ const bookTutor = async (req, res) => {
 
 ///////////////////////
 
-const getPendingBookings = async (req, res) => {
-  try {
-    // Fetch all bookings that are awaiting admin approval
-    const bookings = await Booking.find({
-      adminConfirmed: { $ne: true }, // not yet confirmed
-      status: { $in: ['pending', 'awaiting_approval'] }, // flexible pending statuses
-    })
-      .populate('studentId', 'name email avatar')
-      .populate('tutorId', 'name email avatar')
-      .sort({ createdAt: -1 });
+// const getPendingBookings = async (req, res) => {
+//   try {
+//     // Fetch all bookings that are awaiting admin approval
+//     const bookings = await Booking.find({
+//       adminConfirmed: { $ne: true }, // not yet confirmed
+//       status: { $in: ['pending', 'awaiting_approval'] }, // flexible pending statuses
+//     })
+//       .populate('studentId', 'name email avatar')
+//       .populate('tutorId', 'name email avatar')
+//       .sort({ createdAt: -1 });
 
-    // 🧠 Transform the data for frontend (names + base64 avatar)
-    const formatted = bookings.map((b) => {
-      const tutor = b.tutorId
-        ? {
-            _id: b.tutorId._id,
-            name: b.tutorId.name,
-            email: b.tutorId.email,
-            avatar: b.tutorId.avatar?.data
-              ? `data:${
-                  b.tutorId.avatar.contentType
-                };base64,${b.tutorId.avatar.data.toString('base64')}`
-              : null,
-          }
-        : null;
+//     // 🧠 Transform the data for frontend (names + base64 avatar)
+//     const formatted = bookings.map((b) => {
+//       const tutor = b.tutorId
+//         ? {
+//             _id: b.tutorId._id,
+//             name: b.tutorId.name,
+//             email: b.tutorId.email,
+//             avatar: b.tutorId.avatar?.data
+//               ? `data:${
+//                   b.tutorId.avatar.contentType
+//                 };base64,${b.tutorId.avatar.data.toString('base64')}`
+//               : null,
+//           }
+//         : null;
 
-      const student = b.studentId
-        ? {
-            _id: b.studentId._id,
-            name: b.studentId.name,
-            email: b.studentId.email,
-            avatar: b.studentId.avatar?.data
-              ? `data:${
-                  b.studentId.avatar.contentType
-                };base64,${b.studentId.avatar.data.toString('base64')}`
-              : null,
-          }
-        : null;
+//       const student = b.studentId
+//         ? {
+//             _id: b.studentId._id,
+//             name: b.studentId.name,
+//             email: b.studentId.email,
+//             avatar: b.studentId.avatar?.data
+//               ? `data:${
+//                   b.studentId.avatar.contentType
+//                 };base64,${b.studentId.avatar.data.toString('base64')}`
+//               : null,
+//           }
+//         : null;
 
-      return {
-        _id: b._id,
-        courseTitle: b.courseTitle,
-        sessionType: b.sessionType,
-        scheduledDate: b.scheduledDate,
-        status: b.status,
-        duration: b.duration,
-        amount: b.amount,
-        paymentStatus: b.paymentStatus,
-        adminConfirmed: b.adminConfirmed,
-        createdAt: b.createdAt,
-        updatedAt: b.updatedAt,
-        tutor,
-        student,
-      };
-    });
+//       return {
+//         _id: b._id,
+//         courseTitle: b.courseTitle,
+//         sessionType: b.sessionType,
+//         scheduledDate: b.scheduledDate,
+//         status: b.status,
+//         duration: b.duration,
+//         amount: b.amount,
+//         paymentStatus: b.paymentStatus,
+//         adminConfirmed: b.adminConfirmed,
+//         createdAt: b.createdAt,
+//         updatedAt: b.updatedAt,
+//         tutor,
+//         student,
+//       };
+//     });
 
-    res.status(200).json({
-      success: true,
-      count: formatted.length,
-      bookings: formatted,
-    });
-  } catch (err) {
-    console.error('getPendingBookings error:', err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       count: formatted.length,
+//       bookings: formatted,
+//     });
+//   } catch (err) {
+//     console.error('getPendingBookings error:', err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
 
-const verifyBookingPayment = async (req, res) => {
-  try {
-    const { reference } = req.params;
-    // console.log('Verifying booking with reference:', reference);
+// const verifyBookingPayment = async (req, res) => {
+//   try {
+//     const { reference } = req.params;
+//     // console.log('Verifying booking with reference:', reference);
 
-    // ✅ Verify transaction with Paystack
-    const verification = await paystackService.verifyTransaction(reference);
-    console.log('Paystack verification:', verification);
+//     // ✅ Verify transaction with Paystack
+//     const verification = await paystackService.verifyTransaction(reference);
+//     console.log('Paystack verification:', verification);
 
-    if (
-      !verification.success ||
-      !verification.data ||
-      !verification.data.data ||
-      verification.data.data.status !== 'success'
-    ) {
-      // console.log('Payment verification failed for reference:', reference);
-      return res.redirect(
-        `${process.env.FRONTEND_DEEP_LINK || 'eduapp://booking'}?status=failed`
-      );
-    }
+//     if (
+//       !verification.success ||
+//       !verification.data ||
+//       !verification.data.data ||
+//       verification.data.data.status !== 'success'
+//     ) {
+//       // console.log('Payment verification failed for reference:', reference);
+//       const redirectFail =
+//         verification?.data?.data?.metadata?.redirectUrl ||
+//         `eduapp/tutor/booking/${tutorId}`;
+//       return res.redirect(`${redirectFail}?status=failed`);
+//     }
 
-    // ✅ Retrieve bookingId from Paystack metadata
-    const bookingId = verification.data.data.metadata?.bookingId;
-    const redirectUrl = verification.data.data.metadata?.redirectUrl;
-    console.log(redirectUrl);
-    if (!bookingId) {
-      // console.log(
-      //   'No bookingId found in Paystack metadata for reference:',
-      //   reference
-      // );
-      return res.redirect(`${redirectUrl}/booking?status=failed`);
-    }
+//     // ✅ Retrieve bookingId from Paystack metadata
+//     const bookingId = verification.data.data.metadata?.bookingId;
+//     const redirectUrl = verification.data.data.metadata?.redirectUrl;
+//     // console.log(redirectUrl);
+//     if (!bookingId) {
+//       // console.log(
+//       //   'No bookingId found in Paystack metadata for reference:',
+//       //   reference
+//       // );
+//       return res.redirect(`${redirectUrl}?status=failed`);
+//     }
 
-    // ✅ Fetch booking by ID
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      // console.log('Booking not found for bookingId:', bookingId);
-      return res.redirect(`${redirectUrl}/booking?status=failed`);
-    }
+//     // ✅ Fetch booking by ID
+//     const booking = await Booking.findById(bookingId);
+//     if (!booking) {
+//       // console.log('Booking not found for bookingId:', bookingId);
+//       return res.redirect(`${redirectUrl}?status=failed`);
+//     }
 
-    // ✅ Mark booking as paid
-    booking.paymentStatus = 'paid';
-    booking.paymentMethod = 'paystack';
-    booking.status = 'confirmed';
-    await booking.save();
+//     // ✅ Mark booking as paid
+//     booking.paymentStatus = 'paid';
+//     booking.paymentMethod = 'paystack';
+//     booking.status = 'confirmed';
+//     booking.paystackReference = reference;
+//     booking.paystackTransactionId =
+//       verification?.data?.data?.id ||
+//       verification?.data?.data?.transaction ||
+//       null;
+//     await booking.save();
 
-    // ✅ Update student wallet if needed (optional)
-    const student = await User.findById(booking.studentId);
-    if (student) {
-      // You could update wallet or transaction history here if necessary
-      // console.log('Student found:', student._id);
+//     // Create a Session record (scheduled) if not exists
+//     const existingSession = await Session.findOne({ bookingId: booking._id });
+//     if (!existingSession) {
+//       // fetch tutor to compute tutor/admin share
+//       const tutor = await User.findById(booking.tutorId);
+//       const { tutorShare, adminShare } = computeShares(booking.amount, tutor);
 
-      const balanceBefore = student.walletBalance;
-      // not deducted, since it’s Paystack
+//       const session = await Session.create({
+//         bookingId: booking._id,
+//         tutorId: booking.tutorId,
+//         studentId: booking.studentId,
+//         scheduledDate: booking.scheduledDate,
+//         duration: booking.duration,
+//         amount: booking.amount,
+//         tutorShare,
+//         adminShare,
+//         status: 'scheduled',
+//       });
+//       // optional: session saved
+//       // session.save();
+//     }
 
-      const transaction = new Wallet({
-        userId: student._id,
-        type: 'debit',
-        amount: booking.amount,
-        description: `Booking payment for tutor `,
-        category: 'booking',
-        balanceBefore,
-        balanceAfter: balanceBefore,
-        paymentMethod: 'paystack',
-      });
+//     // ✅ Update student wallet if needed (optional)
+//     const student = await User.findById(booking.studentId);
+//     if (student) {
+//       // You could update wallet or transaction history here if necessary
+//       // console.log('Student found:', student._id);
 
-      await transaction.save();
-    }
+//       const balanceBefore = student.walletBalance;
+//       // not deducted, since it’s Paystack
 
-    // ✅ Redirect back to Expo app
-    const redirect = `${redirectUrl}?status=success&amount=${booking.amount}&reference=${reference}`;
-    console.log('✅ Redirecting user to:', redirect);
-    return res.redirect(redirect);
-  } catch (error) {
-    console.error('verifyBookingPayment error:', error);
-    return res.redirect(
-      `${process.env.FRONTEND_DEEP_LINK || 'eduapp://booking'}?status=failed`
-    );
-  }
-};
+//       const transaction = new Wallet({
+//         userId: student._id,
+//         type: 'debit',
+//         amount: booking.amount,
+//         description: `Booking payment for tutor `,
+//         category: 'booking',
+//         balanceBefore,
+//         balanceAfter: balanceBefore,
+//         paymentMethod: 'paystack',
+//       });
+
+//       await transaction.save();
+//     }
+
+//     // ✅ Redirect back to Expo app
+//     const redirect = `${redirectUrl}?status=success&amount=${booking.amount}&reference=${reference}`;
+//     console.log('✅ Redirecting user to:', redirect);
+//     return res.redirect(redirect);
+//   } catch (error) {
+//     console.error('verifyBookingPayment error:', error);
+//     const redirectFail =
+//       verification?.data?.data?.metadata?.redirectUrl ||
+//       `eduapp/tutor/booking/${tutorId}`;
+//     return res.redirect(`${redirectFail}?status=failed`);
+//   }
+// };
 
 // const approveBooking = async (req, res) => {
 //   try {
@@ -1289,21 +1295,22 @@ const getBookingDetails = async (req, res) => {
     const userId = req.user._id;
     const { bookingId } = req.params;
 
-    console.log('Logged in user:', req.user);
-    console.log('Requested bookingId:', bookingId);
-
     const booking = await Booking.findOne({
       _id: bookingId,
       $or: [{ tutorId: userId }, { studentId: userId }],
     })
       .populate('studentId', 'name email avatar about goal')
-      .populate('tutorId', 'name email avatar fees totalEarnings ');
+      .populate('tutorId', 'name email avatar fees totalEarnings');
 
     if (!booking) {
       return res
         .status(404)
         .json({ message: 'Booking not found or unauthorized' });
     }
+
+    // 🔹 Always allow confirmation if booking is confirmed but not completed
+    const canConfirmCompletion =
+      booking.status === 'confirmed' && !booking.completedAt;
 
     const { tutorId: tutor, studentId: student } = booking;
 
@@ -1321,6 +1328,10 @@ const getBookingDetails = async (req, res) => {
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
+
+      // ✅ Always show confirm button if not completed
+      canConfirmCompletion,
+
       tutor: {
         _id: tutor._id,
         name: tutor.name,
@@ -1379,7 +1390,7 @@ const approveBooking = async (req, res) => {
     await NotificationService.send({
       userId: booking.studentId,
       title: 'Booking Approved',
-      message: `Your session with ${tutor.firstName} is confirmed. Meeting link: ${meetingLink}`,
+      message: `Your session with ${tutor.name} is confirmed. Meeting link: ${meetingLink}`,
     });
 
     // Return updated booking with populated student
@@ -1395,19 +1406,39 @@ const approveBooking = async (req, res) => {
   }
 };
 
+// const getStudentBookings = async (req, res) => {
+//   try {
+//     const studentId = req.user._id; // auth middleware should set req.user
+
+//     // Fetch upcoming bookings approved by admin
+//     const bookings = await Booking.find({
+//       studentId,
+//       adminConfirmed: true,
+//       status: 'confirmed',
+//       scheduledDate: { $gte: new Date() }, // only upcoming bookings
+//     })
+//       .populate('tutorId', 'name email avatar') // get tutor details
+//       .sort({ scheduledDate: 1 });
+
+//     res.json({ success: true, bookings });
+//   } catch (err) {
+//     console.error('getStudentBookings error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
 const getStudentBookings = async (req, res) => {
   try {
-    const studentId = req.user._id; // auth middleware should set req.user
+    const studentId = req.user._id;
 
-    // Fetch upcoming bookings approved by admin
     const bookings = await Booking.find({
       studentId,
-      adminConfirmed: true,
-      status: 'confirmed',
-      scheduledDate: { $gte: new Date() }, // only upcoming bookings
+      adminConfirmed: true, // ✅ approved by admin
+      status: 'confirmed', // ✅ confirmed bookings only
+      scheduledDate: { $gte: new Date() }, // ✅ only future/upcoming sessions
     })
-      .populate('tutorId', 'name email avatar') // get tutor details
-      .sort({ scheduledDate: 1 });
+      .populate('tutorId', 'name email avatar')
+      .sort({ scheduledDate: 1 }); // earliest first
 
     res.json({ success: true, bookings });
   } catch (err) {

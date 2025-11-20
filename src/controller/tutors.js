@@ -54,6 +54,83 @@ const getTutorById = async (req, res) => {
   }
 };
 
+const rateTutor = async (req, res) => {
+  try {
+    const tutorId = req.params.id;
+    const studentId = req.user._id;
+    const { value } = req.body; // 1–5
+
+    if (!value || value < 1 || value > 5)
+      return res
+        .status(400)
+        .json({ message: 'Rating must be between 1 and 5' });
+
+    const tutor = await User.findById(tutorId);
+    if (!tutor) return res.status(404).json({ message: 'Tutor not found' });
+    if (tutor.role !== 'tutor')
+      return res.status(400).json({ message: 'User is not a tutor' });
+
+    // Check if student has rated before
+    const existingRating = tutor.ratings.find(
+      (r) => r.student.toString() === studentId.toString()
+    );
+
+    if (existingRating) {
+      // Update existing rating
+      existingRating.value = value;
+    } else {
+      // Add new rating
+      tutor.ratings.push({ student: studentId, value });
+    }
+
+    // Recalculate totals
+    tutor.totalRatings = tutor.ratings.length;
+    tutor.averageRating =
+      tutor.ratings.reduce((acc, r) => acc + r.value, 0) / tutor.totalRatings;
+
+    await tutor.save();
+
+    res.json({
+      message: 'Rating submitted',
+      averageRating: tutor.averageRating,
+      totalRatings: tutor.totalRatings,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const unrateTutor = async (req, res) => {
+  try {
+    const tutorId = req.params.id;
+    const studentId = req.user._id;
+
+    const tutor = await User.findById(tutorId);
+    if (!tutor) return res.status(404).json({ message: 'Tutor not found' });
+
+    tutor.ratings = tutor.ratings.filter(
+      (r) => r.student.toString() !== studentId.toString()
+    );
+
+    tutor.totalRatings = tutor.ratings.length;
+    tutor.averageRating =
+      tutor.totalRatings === 0
+        ? 0
+        : tutor.ratings.reduce((acc, r) => acc + r.value, 0) /
+          tutor.totalRatings;
+
+    await tutor.save();
+
+    res.json({
+      message: 'Rating removed',
+      averageRating: tutor.averageRating,
+      totalRatings: tutor.totalRatings,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // Get all tutors
 // const getAllTutors = async (req, res) => {
 //   try {
@@ -194,4 +271,10 @@ const getAllTutors = async (req, res) => {
 //   }
 // };
 
-module.exports = { getAvailableTutors, getTutorById, getAllTutors };
+module.exports = {
+  getAvailableTutors,
+  getTutorById,
+  getAllTutors,
+  rateTutor,
+  unrateTutor,
+};

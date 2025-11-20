@@ -15,6 +15,8 @@ const walletRoutes = require('./routes/wallet');
 const subcriptionRoutes = require('./routes/subcsription');
 const solutionRoutes = require('./routes/solution');
 const bookingRoutes = require('./routes/booking');
+const sessionRoutes = require('./routes/session');
+const bankRoutes = require('./routes/bank');
 // const createAdmin = require('./scripts/createAdmin');
 
 const app = express();
@@ -71,6 +73,8 @@ app.use(walletRoutes);
 app.use(subcriptionRoutes);
 app.use(solutionRoutes);
 app.use(bookingRoutes);
+app.use(sessionRoutes);
+app.use(bankRoutes);
 
 const PORT = process.env.PORT || 3000;
 

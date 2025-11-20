@@ -45,41 +45,41 @@ const createSolutionRequest = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Check subscription limits
-    if (user.subscriptionPlan === 'free') {
-      return res.status(403).json({
-        message:
-          'Solution requests not available on free plan. Please upgrade to continue.',
-      });
-    }
+    // if (user.subscriptionPlan === 'free') {
+    //   return res.status(403).json({
+    //     message:
+    //       'Solution requests not available on free plan. Please upgrade to continue.',
+    //   });
+    // }
 
     // Handle monthly reset
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    if (user.lastSolutionRequestMonth !== currentMonth) {
-      user.monthlySolutionRequests = 0;
-      user.lastSolutionRequestMonth = currentMonth;
-    }
+    // const currentMonth = new Date().toISOString().slice(0, 7);
+    // if (user.lastSolutionRequestMonth !== currentMonth) {
+    //   user.monthlySolutionRequests = 0;
+    //   user.lastSolutionRequestMonth = currentMonth;
+    // }
 
-    const planLimits = {
-      'scholar-life': 3,
-      'edu-pro': 5,
-    };
+    // const planLimits = {
+    //   'scholar-life': 3,
+    //   'edu-pro': 5,
+    // };
 
-    const monthlyLimit = planLimits[user.subscriptionPlan];
-    if (user.monthlySolutionRequests >= monthlyLimit) {
-      return res.status(403).json({
-        message: `Monthly solution request limit reached (${monthlyLimit}). Upgrade for more requests.`,
-        monthlyLimit,
-        requestsUsed: user.monthlySolutionRequests,
-      });
-    }
+    // const monthlyLimit = planLimits[user.subscriptionPlan];
+    // if (user.monthlySolutionRequests >= monthlyLimit) {
+    //   return res.status(403).json({
+    //     message: `Monthly solution request limit reached (${monthlyLimit}). Upgrade for more requests.`,
+    //     monthlyLimit,
+    //     requestsUsed: user.monthlySolutionRequests,
+    //   });
+    // }
 
     // Auto-assign urgency
-    const urgencyByPlan = {
-      'edu-pro': 'high',
-      'scholar-life': 'medium',
-      free: 'low',
-    };
-    const urgency = urgencyByPlan[user.subscriptionPlan] || 'medium';
+    // const urgencyByPlan = {
+    //   'edu-pro': 'high',
+    //   'scholar-life': 'medium',
+    //   free: 'low',
+    // };
+    // const urgency = urgencyByPlan[user.subscriptionPlan] || 'medium';
 
     const gridfsBucket = getGridFSBucket();
 
@@ -146,7 +146,7 @@ const createSolutionRequest = async (req, res) => {
     await solutionRequest.save();
 
     // Increment monthly counter
-    user.monthlySolutionRequests += 1;
+    // user.monthlySolutionRequests += 1;
     await user.save();
 
     const populatedRequest = await Solution.findById(

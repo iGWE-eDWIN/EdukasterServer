@@ -5,12 +5,13 @@ const {
   fundWallet,
   verifyWalletFunding,
   adminFundWallet,
+  tutorWithdrawl,
 } = require('../controller/wallet');
 
 const router = new express.Router();
 
 // Get wallet balance and transactions
-router.get('/wallet', auth, authorize('student'), getWalletBalance);
+router.get('/wallet', auth, getWalletBalance);
 // Initialize wallet funding
 router.post('/wallet/fund', auth, authorize('student'), fundWallet);
 // Verify wallet funding
@@ -22,5 +23,8 @@ router.post(
   authorize('admin'),
   adminFundWallet
 );
+
+// Tutor withdrawal
+router.post('/wallet/withdraw', auth, authorize('tutor'), tutorWithdrawl);
 
 module.exports = router;

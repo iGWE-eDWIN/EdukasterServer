@@ -451,8 +451,8 @@ const loginUser = async (req, res) => {
       await user.save();
 
       // Send OTP email
-
-      const html = `
+      try {
+        const html = `
   <div style="font-family: Arial, sans-serif; background: #0B0447; padding:20px;">
     <div style="max-width:520px; margin:20px auto; background: ; border-radius:10px; padding:26px; box-shadow:0 6px 18px rgba(0,0,0,0.08);">
       
@@ -491,9 +491,18 @@ const loginUser = async (req, res) => {
     </div>
   </div>
 `;
-      await sendEmail(user.email, 'Edukaster 2FA Verification', html);
+        await sendEmail(user.email, 'Edukaster 2FA Verification', html);
+      } catch (mailErr) {
+        console.error('2FA Email Error:', mailErr.message);
+        // 🟡 Stop here — don't issue tokens yet
+        return res.status(200).json({
+          // twoFAEnabled: true,
+          message:
+            '2FA is enabled, but email could not be sent. Fix SMTP first.',
+          error: mailErr.message,
+        });
+      }
 
-      // 🟡 Stop here — don't issue tokens yet
       return res.status(200).json({
         twoFAEnabled: true,
         message: '2FA is enabled. Please check your email for the OTP code.',

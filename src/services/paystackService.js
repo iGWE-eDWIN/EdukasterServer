@@ -54,6 +54,23 @@ class PaystackService {
     }
   }
 
+  async resolveAccount(accountNumber, bankCode) {
+    try {
+      const response = await axios.get(
+        `${this.baseURL}/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`,
+        { headers: this.getHeaders() }
+      );
+
+      if (response.data.status) {
+        return { success: true, accountName: response.data.data.account_name };
+      } else {
+        return { success: false, message: 'Failed to resolve account' };
+      }
+    } catch (error) {
+      return this.handleError(error, 'Account resolution failed');
+    }
+  }
+
   // ✅ Verify payment
   async verifyTransaction(reference) {
     try {

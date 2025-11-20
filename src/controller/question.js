@@ -141,23 +141,23 @@ const getAllQuestions = async (req, res) => {
     }
 
     // Free student daily question view limiter
-    if (req.user?.role === 'student') {
-      const user = await User.findById(req.user._id);
-      if (user?.subscriptionPlan === 'free') {
-        const today = new Date().toDateString();
-        const lastViewDate = user.lastQuestionViewDate?.toDateString() || null;
+    // if (req.user?.role === 'student') {
+    //   const user = await User.findById(req.user._id);
+    //   if (user?.subscriptionPlan === 'free') {
+    //     const today = new Date().toDateString();
+    //     const lastViewDate = user.lastQuestionViewDate?.toDateString() || null;
 
-        if (lastViewDate !== today) {
-          user.dailyQuestionViews = 0;
-          user.lastQuestionViewDate = new Date();
-          await user.save();
-        }
+    //     if (lastViewDate !== today) {
+    //       user.dailyQuestionViews = 0;
+    //       user.lastQuestionViewDate = new Date();
+    //       await user.save();
+    //     }
 
-        if (user.dailyQuestionViews >= 7) {
-          query.uploadedBy = user._id;
-        }
-      }
-    }
+    //     if (user.dailyQuestionViews >= 7) {
+    //       query.uploadedBy = user._id;
+    //     }
+    //   }
+    // }
 
     // Search and filter logic
     if (search) {

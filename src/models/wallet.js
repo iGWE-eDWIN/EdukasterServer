@@ -24,9 +24,17 @@ walletSchema = new Schema(
     },
     category: {
       type: String,
-      enum: ['funding', 'booking', 'subscription', 'admin_credit', 'refund'],
+      enum: [
+        'funding',
+        'booking',
+        'subscription',
+        'admin_credit',
+        'refund',
+        'payout', // 👈 ADD THIS
+      ],
       required: true,
     },
+
     balanceBefore: {
       type: Number,
       required: true,

@@ -174,14 +174,36 @@ userSchema = new Schema(
       adminFee: { type: Number, default: 0 }, // admin’s portion
       totalFee: { type: Number, default: 0 }, // tutorFee + adminFee
     },
-    rating: {
-      type: Number,
-      default: 0,
-    },
-    totalRatings: {
-      type: Number,
-      default: 0,
-    },
+    // rating: {
+    //   type: Number,
+    //   default: 0,
+    // },
+    // totalRatings: {
+    //   type: Number,
+    //   default: 0,
+    // },
+
+    // ratedBy: [
+    //   {
+    //     type: Schema.Types.ObjectId,
+    //     ref: 'User',
+    //   },
+    // ],
+    // ratingCount: {
+    //   type: Number,
+    //   default: 0,
+    // },
+
+    ratings: [
+      {
+        student: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        value: { type: Number, min: 1, max: 5 },
+      },
+    ],
+
+    averageRating: { type: Number, default: 0 }, // computed
+    totalRatings: { type: Number, default: 0 }, // count of ratings
+
     bio: String,
     // isVerified: {
     //   type: Boolean,
