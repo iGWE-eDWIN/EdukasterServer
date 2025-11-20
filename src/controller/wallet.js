@@ -334,7 +334,9 @@ const verifyWalletFunding = async (req, res) => {
     if (redirectUri) {
       console.log(redirectUri);
       // console.log('Redirecting to:', redirectUri);
-      const redirectUrl = `${redirectUri}?status=success&amount=${amount}`;
+      const redirectUrl =
+        `${redirectUri}?status=success&amount=${amount}` ||
+        `${process.env.FRONTEND_DEEP_LINK}://wallet`;
       return res.redirect(302, redirectUrl);
 
       // const redirectUrl = `${redirectUri}?status=success&amount=${amount}`;
