@@ -143,6 +143,11 @@ const approveTutor = async (req, res) => {
           `Failed to send approval email to ${tutor.email}:`,
           emailError
         );
+        res.status(500).json({
+          message:
+            'Tutor approved, but failed to send approval email. Please contact support.',
+        });
+        return;
         // Optionally: you could store a flag to retry sending email later
       }
     } else {

@@ -294,7 +294,19 @@ const verifyEmail = async (req, res) => {
     </div>
   </div>
 `;
-      await sendEmail(user.email, 'Tutor Registration Pending Approval', html);
+      try {
+        await sendEmail(
+          user.email,
+          'Tutor Registration Pending Approval',
+          html
+        );
+      } catch (mailErr) {
+        return res.status(500).json({
+          message:
+            'Registration successful, but failed to send approval email. Contact support.',
+          error: mailErr.message,
+        });
+      }
     }
 
     if (user.role === 'student') {
@@ -410,9 +422,20 @@ const registerUser = async (req, res) => {
   </div>
 `;
 
-    sendEmail(email, 'Edukaster Email Verification', html)
-      .then(() => console.log(`✅ Verification email sent to ${email}`))
-      .catch((err) => console.error('❌ Failed to send email:', err.message));
+    try {
+      await sendEmail(email, 'Edukaster Email Verification', html);
+      // console.log(`✅ Verification email sent to ${email}`);
+    } catch (mailErr) {
+      // console.error('❌ Failed to send email:', mailErr.message);
+      return res.status(500).json({
+        message: 'Failed to send verification email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
+
+    // sendEmail(email, 'Edukaster Email Verification', html)
+    //   .then(() => console.log(`✅ Verification email sent to ${email}`))
+    //   .catch((err) => console.error('❌ Failed to send email:', err.message));
 
     res.status(200).json({
       verificationRequired: true,
@@ -658,7 +681,14 @@ const enableTwoFactorEmail = async (req, res) => {
 </div>
 `;
 
-    await sendEmail(user.email, 'Edukaster 2FA Verification', html);
+    try {
+      await sendEmail(user.email, 'Edukaster 2FA Verification', html);
+    } catch (mailErr) {
+      return res.status(500).json({
+        message: 'Failed to send 2FA OTP email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
 
     res.status(200).json({ message: 'OTP sent to email' });
   } catch (error) {
