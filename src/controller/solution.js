@@ -139,7 +139,7 @@ const createSolutionRequest = async (req, res) => {
       title,
       question,
       attachments: uploadedFiles,
-      urgency,
+      // urgency,
       status: 'pending',
     });
 
