@@ -9,6 +9,7 @@ const NotificationService = require('../services/notificationService');
 // const fs = require('fs');
 // const path = require('path');
 const { computeShares } = require('../utils/payment');
+const { sendEmail } = require('../utils/email');
 
 const getTutorAvailability = async (req, res) => {
   try {
@@ -1374,6 +1375,9 @@ const approveBooking = async (req, res) => {
     const tutor = await User.findById(booking.tutorId);
     if (!tutor) return res.status(404).json({ message: 'Tutor not found' });
 
+    const student = await User.findById(booking.studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
     const tutorFee = tutor.fees?.tutorFee || 0;
 
     // Update booking
@@ -1392,6 +1396,74 @@ const approveBooking = async (req, res) => {
       title: 'Booking Approved',
       message: `Your session with ${tutor.name} is confirmed. Meeting link: ${meetingLink}`,
     });
+
+    // Send mail to tutor and student about session
+    let html;
+    try {
+      html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Your session with <strong>${student?.name}</strong> is confirmed.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+      await sendEmail(tutor?.email, 'Booking Session', html);
+    } catch (mailErr) {
+      return res.status(500).json({
+        message: 'Failed to send verification email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
+
+    try {
+      html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Your session with <strong>${tutor?.name}</strong> is confirmed.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+      await sendEmail(student?.email, 'Booking Session', html);
+    } catch (mailErr) {
+      return res.status(500).json({
+        message: 'Failed to send verification email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
 
     // Return updated booking with populated student
     const updatedBooking = await Booking.findById(bookingId).populate(
