@@ -217,39 +217,39 @@ const getQuestionById = async (req, res) => {
     }
 
     // Count view only for student users
-    if (req.user && req.user.role === 'student') {
-      const user = await User.findById(req.user._id);
+    // if (req.user && req.user.role === 'student') {
+    //   const user = await User.findById(req.user._id);
 
-      // Free plan check
-      if (user.subscriptionPlan === 'free') {
-        const today = new Date().toDateString();
-        const lastViewDate = user.lastQuestionViewDate
-          ? user.lastQuestionViewDate.toDateString()
-          : null;
+    //   // Free plan check
+    //   if (user.subscriptionPlan === 'free') {
+    //     const today = new Date().toDateString();
+    //     const lastViewDate = user.lastQuestionViewDate
+    //       ? user.lastQuestionViewDate.toDateString()
+    //       : null;
 
-        // Reset daily counter if new day
-        if (lastViewDate !== today) {
-          user.dailyQuestionViews = 0;
-          user.lastQuestionViewDate = new Date();
-          await user.save();
-        }
+    //     // Reset daily counter if new day
+    //     if (lastViewDate !== today) {
+    //       user.dailyQuestionViews = 0;
+    //       user.lastQuestionViewDate = new Date();
+    //       await user.save();
+    //     }
 
-        // If not their own upload, increment view
-        if (String(question.uploadedBy._id) !== String(user._id)) {
-          if (user.dailyQuestionViews >= 7) {
-            return res.status(403).json({
-              message:
-                'Daily question view limit reached. Upgrade to continue viewing.',
-              dailyLimit: 7,
-              viewsToday: user.dailyQuestionViews,
-            });
-          }
+    //     // If not their own upload, increment view
+    //     if (String(question.uploadedBy._id) !== String(user._id)) {
+    //       if (user.dailyQuestionViews >= 7) {
+    //         return res.status(403).json({
+    //           message:
+    //             'Daily question view limit reached. Upgrade to continue viewing.',
+    //           dailyLimit: 7,
+    //           viewsToday: user.dailyQuestionViews,
+    //         });
+    //       }
 
-          user.dailyQuestionViews += 1;
-          await user.save();
-        }
-      }
-    }
+    //       user.dailyQuestionViews += 1;
+    //       await user.save();
+    //     }
+    //   }
+    // }
 
     // Add file URLs
     const questionObj = question.toObject();
@@ -273,10 +273,9 @@ const getUploads = async (req, res) => {
     if (status === 'approved') query.isApproved = true;
     if (status === 'pending') query.isApproved = false;
 
-    const questions = await Question.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    const questions = await Question.find(query).sort({ createdAt: -1 });
+    // .limit(limit * 1)
+    // .skip((page - 1) * limit);
 
     const total = await Question.countDocuments(query);
 

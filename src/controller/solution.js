@@ -181,7 +181,7 @@ const getAllSolutionRequest = async (req, res) => {
     const requests = await Solution.find()
       .populate('studentId', 'name email institution course avatar')
       .sort({
-        urgency: -1, // High → Medium → Low
+        // urgency: -1, // High → Medium → Low
         createdAt: -1, // Newest first
       });
 
