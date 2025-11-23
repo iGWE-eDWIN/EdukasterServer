@@ -1096,7 +1096,7 @@ const getTutorBookings = async (req, res) => {
       status: 'confirmed',
     })
       .populate('studentId', 'name email avatar')
-      .sort({ scheduledDate: 1 });
+      .sort({ scheduledDate: -1 });
 
     const formattedBookings = bookings.map((b) => {
       const student = b.studentId;
