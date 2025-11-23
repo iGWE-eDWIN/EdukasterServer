@@ -1427,7 +1427,8 @@ const approveBooking = async (req, res) => {
       await sendEmail(tutor?.email, 'Booking Session', html);
     } catch (mailErr) {
       return res.status(500).json({
-        message: 'Failed to send verification email. Please try again later.',
+        message:
+          'Failed to send booking session email. Please try again later.',
         error: mailErr.message,
       });
     }
@@ -1460,7 +1461,8 @@ const approveBooking = async (req, res) => {
       await sendEmail(student?.email, 'Booking Session', html);
     } catch (mailErr) {
       return res.status(500).json({
-        message: 'Failed to send verification email. Please try again later.',
+        message:
+          'Failed to send booking session email. Please try again later.',
         error: mailErr.message,
       });
     }
