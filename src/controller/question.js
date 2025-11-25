@@ -252,10 +252,14 @@ const getQuestionById = async (req, res) => {
     // }
 
     // Add file URLs
+    const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-8b325837bf8a.herokuapp.com';
     const questionObj = question.toObject();
     questionObj.images = questionObj.images.map((img) => ({
       ...img,
-      url: `${req.protocol}://${req.get('host')}/questions/file/${img.fileId}`,
+      // url: `${req.protocol}://${req.get('host')}/questions/file/${img.fileId}`,
+      url: `${BASE_URL}/questions/file/${img.fileId}`,
     }));
 
     res.json(questionObj);
