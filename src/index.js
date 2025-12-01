@@ -38,16 +38,19 @@ app.use(helmet());
 //     exposedHeaders: ['Content-Type', 'Content-Length'],
 //   })
 // );
-
+// ✅ CORS FIXED
 app.use(
   cors({
-    origin: '*',
-    methods: 'GET,POST,PATCH,PUT,DELETE',
-    allowedHeaders: 'Content-Type, Authorization',
+    origin: '*', // you can restrict later
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// ✅ Add this middleware for all responses
+// ✅ Handle preflight OPTIONS (VERY IMPORTANT)
+app.options('*', cors());
+
+// ✅ Add this middleware for all responses Optional headers
 app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
