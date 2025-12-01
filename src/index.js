@@ -41,7 +41,7 @@ app.use(helmet());
 // ✅ CORS FIXED
 app.use(
   cors({
-    origin: '*', // you can restrict later
+    origin: ['*', 'http://localhost:3000', 'https://edukaster.vercel.app'], // you can restrict later
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
