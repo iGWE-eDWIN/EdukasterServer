@@ -12,7 +12,7 @@ const userRoutes = require('./routes/users');
 const tutorRoutes = require('./routes/tutors');
 const questionRoutes = require('./routes/question');
 const walletRoutes = require('./routes/wallet');
-const subcriptionRoutes = require('./routes/subcsription');
+const subcriptionRoutes = require('./routes/subcription');
 const solutionRoutes = require('./routes/solution');
 const bookingRoutes = require('./routes/booking');
 const sessionRoutes = require('./routes/session');
@@ -48,7 +48,7 @@ app.use(
 );
 
 // ✅ Handle preflight OPTIONS (VERY IMPORTANT)
-app.options('*', cors());
+app.options(/.*/, cors());
 // app.use(helmet());
 
 // ✅ Add this middleware for all responses Optional headers
