@@ -5,8 +5,8 @@ const createSubscriber = async (req, res) => {
   try {
     const { email, phone } = req.body;
 
-    if (!email || !phone) {
-      return res.status(400).json({ message: 'Email and phone are required' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
     // Check if subscriber already exists
@@ -14,11 +14,9 @@ const createSubscriber = async (req, res) => {
       $or: [{ email }, { phone }],
     });
     if (existingSubscriber) {
-      return res
-        .status(400)
-        .json({
-          message: 'Subscriber with this email or phone already exists',
-        });
+      return res.status(400).json({
+        message: 'Subscriber with this email or phone already exists',
+      });
     }
 
     // Create new subscriber
@@ -36,12 +34,10 @@ const createSubscriber = async (req, res) => {
       console.error('Error sending confirmation email:', emailError);
     }
 
-    res
-      .status(201)
-      .json({
-        message: 'Subscriber created successfully',
-        subscriber: newSubscriber,
-      });
+    res.status(201).json({
+      message: 'Subscriber created successfully',
+      subscriber: newSubscriber,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
