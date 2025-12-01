@@ -23,7 +23,7 @@ const subscriberRoutes = require('./routes/subscriber');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+//app.use(helmet());
 // app.use(
 //   cors({
 //     origin: '*',
@@ -41,7 +41,7 @@ app.use(helmet());
 // ✅ CORS FIXED
 app.use(
   cors({
-    origin: ['*', 'http://localhost:3000', 'https://edukaster.vercel.app'], // you can restrict later
+    origin: '*', // you can restrict later
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
@@ -49,6 +49,7 @@ app.use(
 
 // ✅ Handle preflight OPTIONS (VERY IMPORTANT)
 app.options('*', cors());
+app.use(helmet());
 
 // ✅ Add this middleware for all responses Optional headers
 app.use((req, res, next) => {
