@@ -23,7 +23,7 @@ const subscriberRoutes = require('./routes/subscriber');
 const app = express();
 
 // Security middleware
-//app.use(helmet());
+app.use(helmet());
 // app.use(
 //   cors({
 //     origin: '*',
@@ -49,7 +49,7 @@ app.use(
 
 // ✅ Handle preflight OPTIONS (VERY IMPORTANT)
 app.options('*', cors());
-app.use(helmet());
+// app.use(helmet());
 
 // ✅ Add this middleware for all responses Optional headers
 app.use((req, res, next) => {

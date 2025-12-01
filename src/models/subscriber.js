@@ -25,4 +25,4 @@ NewsSubscriberSchema.index({ phone: 1 }, { unique: true });
 
 const Subscriber = model('Subscriber', NewsSubscriberSchema);
 
-export default Subscriber;
+module.exports = Subscriber;
