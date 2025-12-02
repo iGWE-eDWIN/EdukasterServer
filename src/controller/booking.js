@@ -10,6 +10,7 @@ const NotificationService = require('../services/notificationService');
 // const path = require('path');
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
+const { sendPushNotification } = require('../services/pushService');
 
 const getTutorAvailability = async (req, res) => {
   try {
@@ -1362,6 +1363,165 @@ const getBookingDetails = async (req, res) => {
   }
 };
 
+// const approveBooking = async (req, res) => {
+//   try {
+//     const { bookingId } = req.params;
+//     const { meetingLink } = req.body;
+
+//     const booking = await Booking.findById(bookingId);
+//     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+//     if (booking.adminConfirmed)
+//       return res.status(400).json({ message: 'Booking already approved' });
+
+//     const tutor = await User.findById(booking.tutorId);
+//     if (!tutor) return res.status(404).json({ message: 'Tutor not found' });
+
+//     const student = await User.findById(booking.studentId);
+//     if (!student) return res.status(404).json({ message: 'Student not found' });
+
+//     const tutorFee = tutor.fees?.tutorFee || 0;
+
+//     // Update booking
+//     booking.adminConfirmed = true;
+//     booking.meetingLink = meetingLink;
+//     booking.status = 'confirmed';
+//     await booking.save();
+
+//     // Credit tutor
+//     tutor.totalEarnings = (tutor.totalEarnings || 0) + Number(tutorFee);
+//     await tutor.save();
+
+//     // Notify student
+//     await NotificationService.send({
+//       userId: booking.studentId,
+//       title: 'Booking Approved',
+//       message: `Your session with ${tutor.name} is confirmed. Meeting link: ${meetingLink}`,
+//     });
+
+//     // Send mail to tutor and student about session
+//     let html;
+//     try {
+//       html = `
+//   <div style="font-family: Arial, sans-serif; padding: 20px;">
+//     <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+//       <div style="text-align: center; margin-bottom: 20px;">
+//         <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+//       </div>
+
+//       <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+//       <p style="font-size: 15px; color: #f6f6f6;">
+//         Your session with <strong>${student?.name}</strong> is confirmed.
+//       </p>
+
+//       <p style="font-size: 15px; color: #f6f6f6;">
+//         Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+//       </p>
+
+//       <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+//         © ${new Date().getFullYear()} Edukaster. All rights reserved.
+//       </p>
+//     </div>
+//   </div>
+// `;
+//       await sendEmail(tutor?.email, 'Booking Session', html);
+//     } catch (mailErr) {
+//       return res.status(500).json({
+//         message:
+//           'Failed to send booking session email. Please try again later.',
+//         error: mailErr.message,
+//       });
+//     }
+
+//     try {
+//       html = `
+//   <div style="font-family: Arial, sans-serif; padding: 20px;">
+//     <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+//       <div style="text-align: center; margin-bottom: 20px;">
+//         <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+//       </div>
+
+//       <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+//       <p style="font-size: 15px; color: #f6f6f6;">
+//         Your session with <strong>${tutor?.name}</strong> is confirmed.
+//       </p>
+
+//       <p style="font-size: 15px; color: #f6f6f6;">
+//         Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+//       </p>
+
+//       <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+//         © ${new Date().getFullYear()} Edukaster. All rights reserved.
+//       </p>
+//     </div>
+//   </div>
+// `;
+//       await sendEmail(student?.email, 'Booking Session', html);
+//     } catch (mailErr) {
+//       return res.status(500).json({
+//         message:
+//           'Failed to send booking session email. Please try again later.',
+//         error: mailErr.message,
+//       });
+//     }
+
+//     // Return updated booking with populated student
+//     const updatedBooking = await Booking.findById(bookingId).populate(
+//       'studentId',
+//       'firstName lastName email avatar'
+//     );
+
+//     res.json({ message: 'Booking approved', booking: updatedBooking });
+//   } catch (err) {
+//     console.error('approveBooking error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+// const getStudentBookings = async (req, res) => {
+//   try {
+//     const studentId = req.user._id; // auth middleware should set req.user
+
+//     // Fetch upcoming bookings approved by admin
+//     const bookings = await Booking.find({
+//       studentId,
+//       adminConfirmed: true,
+//       status: 'confirmed',
+//       scheduledDate: { $gte: new Date() }, // only upcoming bookings
+//     })
+//       .populate('tutorId', 'name email avatar') // get tutor details
+//       .sort({ scheduledDate: 1 });
+
+//     res.json({ success: true, bookings });
+//   } catch (err) {
+//     console.error('getStudentBookings error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+const getStudentBookings = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+
+    const bookings = await Booking.find({
+      studentId,
+      adminConfirmed: true, // ✅ approved by admin
+      status: 'confirmed', // ✅ confirmed bookings only
+      scheduledDate: { $gte: new Date() }, // ✅ only future/upcoming sessions
+    })
+      .populate('tutorId', 'name email avatar')
+      .sort({ scheduledDate: 1 }); // earliest first
+
+    res.json({ success: true, bookings });
+  } catch (err) {
+    console.error('getStudentBookings error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 const approveBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -1395,6 +1555,48 @@ const approveBooking = async (req, res) => {
       userId: booking.studentId,
       title: 'Booking Approved',
       message: `Your session with ${tutor.name} is confirmed. Meeting link: ${meetingLink}`,
+    });
+
+    // Push Notification to student
+    if (student.pushToken) {
+      await sendPushNotification({
+        pushToken: student.pushToken,
+        title: 'Session Approved',
+        message: `Your session with ${tutor.name} is confirmed. Meeting link: ${meetingLink}`,
+      });
+    }
+
+    // Push Notification to tutor
+    if (tutor.pushToken) {
+      await sendPushNotification({
+        pushToken: tutor.pushToken,
+        title: 'Session Approved',
+        message: `Your session with ${student.name} is confirmed. Meeting link: ${meetingLink}`,
+      });
+    }
+
+    // 2 Hours reminder to student and tutor
+    const sessionTime = new Date(booking.date);
+    const reminderTime = new Date(sessionTime.getTime() - 2 * 60 * 60 * 1000);
+
+    schedule.scheduleJob(reminderTime, async () => {
+      // Send reminder to student
+      if (student.pushToken) {
+        await sendPushNotification({
+          pushToken: student.pushToken,
+          title: 'Session Reminder',
+          message: `Reminder: Your session with ${tutor.name} starts in 2 hours. Meeting link: ${meetingLink}`,
+        });
+      }
+
+      // Send reminder to tutor
+      if (tutor.pushToken) {
+        await sendPushNotification({
+          pushToken: tutor.pushToken,
+          title: 'Session Reminder',
+          message: `Reminder: Your session with ${student.name} starts in 2 hours. Meeting link: ${meetingLink}`,
+        });
+      }
     });
 
     // Send mail to tutor and student about session
@@ -1476,47 +1678,6 @@ const approveBooking = async (req, res) => {
     res.json({ message: 'Booking approved', booking: updatedBooking });
   } catch (err) {
     console.error('approveBooking error:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// const getStudentBookings = async (req, res) => {
-//   try {
-//     const studentId = req.user._id; // auth middleware should set req.user
-
-//     // Fetch upcoming bookings approved by admin
-//     const bookings = await Booking.find({
-//       studentId,
-//       adminConfirmed: true,
-//       status: 'confirmed',
-//       scheduledDate: { $gte: new Date() }, // only upcoming bookings
-//     })
-//       .populate('tutorId', 'name email avatar') // get tutor details
-//       .sort({ scheduledDate: 1 });
-
-//     res.json({ success: true, bookings });
-//   } catch (err) {
-//     console.error('getStudentBookings error:', err);
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
-const getStudentBookings = async (req, res) => {
-  try {
-    const studentId = req.user._id;
-
-    const bookings = await Booking.find({
-      studentId,
-      adminConfirmed: true, // ✅ approved by admin
-      status: 'confirmed', // ✅ confirmed bookings only
-      scheduledDate: { $gte: new Date() }, // ✅ only future/upcoming sessions
-    })
-      .populate('tutorId', 'name email avatar')
-      .sort({ scheduledDate: 1 }); // earliest first
-
-    res.json({ success: true, bookings });
-  } catch (err) {
-    console.error('getStudentBookings error:', err);
     res.status(500).json({ message: err.message });
   }
 };

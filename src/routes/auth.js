@@ -14,6 +14,7 @@ const {
   disableTwoFactorEmail,
   verifyTwoFactorLogin,
   verifyEmail,
+  savePushToken,
 } = require('../controller/auth');
 
 const router = new express.Router();
@@ -49,5 +50,8 @@ router.post('/change-password', auth, changePassword);
 
 // Update profile route
 router.patch('/update-profile', auth, upload.single('avatar'), updateProfile);
+
+// Save push notification token route
+router.post('/save-push-token', auth, savePushToken);
 
 module.exports = router;

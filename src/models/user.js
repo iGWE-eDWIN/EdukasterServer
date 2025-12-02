@@ -105,6 +105,10 @@ userSchema = new Schema(
       enum: ['student', 'tutor', 'admin'],
       required: true,
     },
+    pushToken: {
+      type: String,
+      default: null,
+    },
     avatar: {
       data: Buffer,
       contentType: String,
