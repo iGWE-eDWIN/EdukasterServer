@@ -16,22 +16,44 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// async function sendEmail(to, subject, html) {
+//   await transporter.sendMail({
+//     from: `"Edukaster" <${process.env.EMAIL_USER}>`,
+//     to,
+//     subject,
+//     html,
+//     encoding: 'utf-8',
+//     attachments: [
+//       {
+//         filename: 'logo.png',
+//         // path: path.join(__dirname, 'logo.png'), // Put the uploaded image here
+//         content: logoBuffer,
+//         cid: 'edukaster-logo', // Use this in the HTML <img src="cid:edukaster-logo" />
+//       },
+//     ],
+//   });
+// }
+
 async function sendEmail(to, subject, html) {
-  await transporter.sendMail({
-    from: `"Edukaster" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html,
-    encoding: 'utf-8',
-    attachments: [
-      {
-        filename: 'logo.png',
-        // path: path.join(__dirname, 'logo.png'), // Put the uploaded image here
-        content: logoBuffer,
-        cid: 'edukaster-logo', // Use this in the HTML <img src="cid:edukaster-logo" />
-      },
-    ],
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"Edukaster" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: 'logo.png',
+          content: logoBuffer,
+          cid: 'edukaster-logo',
+        },
+      ],
+    });
+    console.log('Email sent:', info.messageId);
+  } catch (err) {
+    console.error('❌ sendEmail error:', err);
+    throw err;
+  }
 }
 
 module.exports = { sendEmail };
