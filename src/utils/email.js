@@ -1,6 +1,7 @@
 // utils/email.js
 const nodemailer = require('nodemailer');
 const path = require('path');
+const logoBuffer = require('fs').readFileSync(path.join(__dirname, 'logo.png'));
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'mail.edukaster.com',
@@ -25,7 +26,8 @@ async function sendEmail(to, subject, html) {
     attachments: [
       {
         filename: 'logo.png',
-        path: path.join(__dirname, 'logo.png'), // Put the uploaded image here
+        // path: path.join(__dirname, 'logo.png'), // Put the uploaded image here
+        content: logoBuffer,
         cid: 'edukaster-logo', // Use this in the HTML <img src="cid:edukaster-logo" />
       },
     ],
