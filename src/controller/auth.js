@@ -876,6 +876,30 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Delete user account (self)
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Optional: prevent admin self-delete (your choice)
+    // if (req.user.role === 'admin') {
+    //   return res.status(403).json({ message: 'Admins cannot delete their account.' });
+    // }
+
+    // Delete user
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      message: 'Account deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      message: error.message || 'Failed to delete account',
+    });
+  }
+};
+
 // Save Push Notification Token
 const savePushToken = async (req, res) => {
   try {
@@ -914,4 +938,5 @@ module.exports = {
   verifyTwoFactorLogin,
   verifyEmail,
   savePushToken,
+  deleteAccount,
 };
