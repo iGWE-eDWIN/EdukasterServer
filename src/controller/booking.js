@@ -537,17 +537,38 @@ const verifyBookingPayment = async (req, res) => {
   }
 };
 
+// const getPendingBookings = async (req, res) => {
+//   try {
+//     const bookings = await Booking.find({
+//       status: 'confirmed',
+//       adminConfirmed: { $ne: true },
+//     })
+//       .populate('studentId', 'name email avatar')
+//       .populate('tutorId', 'name email avatar')
+//       .sort({ createdAt: -1 });
+
+//     res.status(200).json({ success: true, count: bookings.length, bookings });
+//   } catch (err) {
+//     console.error('getPendingBookings error:', err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 const getPendingBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({
-      status: 'confirmed',
+      status: 'pending',
       adminConfirmed: { $ne: true },
     })
       .populate('studentId', 'name email avatar')
       .populate('tutorId', 'name email avatar')
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, count: bookings.length, bookings });
+    res.status(200).json({
+      success: true,
+      count: bookings.length,
+      bookings,
+    });
   } catch (err) {
     console.error('getPendingBookings error:', err);
     res.status(500).json({ success: false, message: err.message });
