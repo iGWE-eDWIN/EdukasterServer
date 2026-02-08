@@ -115,6 +115,13 @@ bookingSchema = new Schema(
     },
     meetingLink: String,
     sessionNotes: String,
+    uploadedFile: {
+      url: String,
+      originalName: String,
+      mimeType: String,
+      size: Number,
+    },
+
     rating: {
       type: Number,
       min: 1,
@@ -123,7 +130,7 @@ bookingSchema = new Schema(
     review: String,
     completedAt: Date,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Booking = model('Booking', bookingSchema);

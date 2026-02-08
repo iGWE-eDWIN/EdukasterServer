@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
+const upload = require('../middleware/uploads');
 const {
   getTutorAvailability,
   bookTutor,
@@ -15,7 +16,8 @@ const {
 
 const router = express.Router();
 router.get('/bookings/tutor/:id/availability', auth, getTutorAvailability);
-router.post('/bookings', auth, bookTutor);
+
+router.post('/bookings', auth, upload.single('attachment'), bookTutor);
 router.get('/bookings/verify/:reference', verifyBookingPayment);
 
 // Admin only
@@ -24,7 +26,7 @@ router.patch(
   '/bookings/:bookingId/approve',
   auth,
   authorize('admin'),
-  approveBooking
+  approveBooking,
 );
 router.patch('/bookings/:bookingId/rate', auth, rateBooking);
 router.get('/bookings/all', auth, authorize('tutor'), getTutorBookings);
@@ -32,7 +34,7 @@ router.get(
   '/bookings/students/me',
   auth,
   authorize('student'),
-  getStudentBookings
+  getStudentBookings,
 );
 
 // router.get(
@@ -55,7 +57,7 @@ router.get(
   '/bookings/tutor/today-classes',
   auth,
   authorize('tutor'),
-  getTodayClassesForTutor
+  getTodayClassesForTutor,
 );
 
 module.exports = router;
