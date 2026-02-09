@@ -13,6 +13,8 @@ const {
   getBookingDetails,
   getTodayClassesForTutor,
 } = require('../controller/booking');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 router.get('/bookings/tutor/:id/availability', auth, getTutorAvailability);
@@ -51,8 +53,8 @@ router.get(
 //   getBookingDetailsForTutor
 // );
 
-import path from 'path';
-import fs from 'fs';
+// const path =  'path';
+// import fs from 'fs';
 
 // Serve student uploaded files
 router.get('/bookings/file/:filename', auth, (req, res) => {
