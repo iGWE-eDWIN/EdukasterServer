@@ -1116,7 +1116,15 @@ const getBookingDetails = async (req, res) => {
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
 
-      studentFile,
+      // studentFile,
+      studentFile: booking.uploadedFile
+        ? {
+            url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+            originalName: booking.uploadedFile.originalName,
+            mimeType: booking.uploadedFile.mimeType,
+            size: booking.uploadedFile.size,
+          }
+        : null,
 
       student: student && {
         _id: student._id,
