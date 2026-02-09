@@ -1093,6 +1093,16 @@ const getBookingDetails = async (req, res) => {
     const student = booking.studentId;
     const tutor = booking.tutorId;
 
+    // ✅ build public file URL
+    const studentFile = booking.uploadedFile
+      ? {
+          originalName: booking.uploadedFile.originalName,
+          mimeType: booking.uploadedFile.mimeType,
+          size: booking.uploadedFile.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+        }
+      : null;
+
     const responseData = {
       _id: booking._id,
       courseTitle: booking.courseTitle,
@@ -1106,46 +1116,30 @@ const getBookingDetails = async (req, res) => {
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
 
-      // ✅ FILE (THIS WAS MISSING)
-      studentFile: booking.uploadedFile
-        ? {
-            url: booking.uploadedFile.url,
-            originalName: booking.uploadedFile.originalName,
-            mimeType: booking.uploadedFile.mimeType,
-            size: booking.uploadedFile.size,
-          }
-        : null,
+      studentFile,
 
-      student: student
-        ? {
-            _id: student._id,
-            name: student.name,
-            email: student.email,
-            about: student.about,
-            goal: student.goal,
-            avatar:
-              student.avatar?.data && student.avatar?.contentType
-                ? `data:${student.avatar.contentType};base64,${student.avatar.data.toString(
-                    'base64',
-                  )}`
-                : null,
-          }
-        : null,
+      student: student && {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        about: student.about,
+        goal: student.goal,
+        avatar:
+          student.avatar?.data && student.avatar?.contentType
+            ? `data:${student.avatar.contentType};base64,${student.avatar.data.toString('base64')}`
+            : null,
+      },
 
-      tutor: tutor
-        ? {
-            _id: tutor._id,
-            name: tutor.name,
-            email: tutor.email,
-            totalEarnings: tutor.totalEarnings || 0,
-            avatar:
-              tutor.avatar?.data && tutor.avatar?.contentType
-                ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-                    'base64',
-                  )}`
-                : null,
-          }
-        : null,
+      tutor: tutor && {
+        _id: tutor._id,
+        name: tutor.name,
+        email: tutor.email,
+        totalEarnings: tutor.totalEarnings || 0,
+        avatar:
+          tutor.avatar?.data && tutor.avatar?.contentType
+            ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString('base64')}`
+            : null,
+      },
     };
 
     res.json({ success: true, booking: responseData });
