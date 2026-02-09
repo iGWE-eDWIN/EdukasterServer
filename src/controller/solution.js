@@ -27,8 +27,8 @@ const upload = multer({
     } else {
       cb(
         new Error(
-          `Invalid file type: ${file.mimetype}. Only PDF, images, and videos are allowed.`
-        )
+          `Invalid file type: ${file.mimetype}. Only PDF, images, and videos are allowed.`,
+        ),
       );
     }
   },
@@ -130,7 +130,7 @@ const createSolutionRequest = async (req, res) => {
         } catch (error) {
           throw new Error(`File processing error: ${error.message}`);
         }
-      })
+      }),
     );
 
     // ✅ Save Solution Request
@@ -150,7 +150,7 @@ const createSolutionRequest = async (req, res) => {
     await user.save();
 
     const populatedRequest = await Solution.findById(
-      solutionRequest._id
+      solutionRequest._id,
     ).populate('studentId', 'name email institution course');
 
     // ✅ Add file URLs for your UI
@@ -175,43 +175,86 @@ const createSolutionRequest = async (req, res) => {
 };
 
 // Get all solution requests (Tutor - available to pick up)
+// const getAllSolutionRequest = async (req, res) => {
+//   try {
+//     // Fetch all solution requests (Tutor)
+//     const requests = await Solution.find()
+//       .populate('studentId', 'name email institution course avatar')
+//       .sort({
+//         // urgency: -1, // High → Medium → Low
+//         createdAt: -1, // Newest first
+//       });
+
+//     // ✅ Add file URLs + student profile image
+//     const requestsWithUrls = requests.map((request) => {
+//       const reqObj = request.toObject();
+
+//       // Add file URLs for each attachment
+//       reqObj.attachments = reqObj.attachments.map((file) => ({
+//         ...file,
+//         url: `${req.protocol}://${req.get('host')}/solutions/file/${
+//           file.fileId
+//         }`,
+//       }));
+
+//       // Add student profile image URL (if exists)
+//       // ✅ Convert avatar buffer to base64
+//       if (reqObj.studentId?.avatar?.data) {
+//         reqObj.studentId.avatarUrl = `data:${
+//           reqObj.studentId.avatar.contentType
+//         };base64,${reqObj.studentId.avatar.data.toString('base64')}`;
+//       } else {
+//         // Default avatar fallback
+//         reqObj.studentId.avatarUrl =
+//           'https://ui-avatars.com/api/?name=User&background=random';
+//       }
+
+//       return reqObj;
+//     });
+//     // console.log(JSON.stringify(requestsWithUrls, null, 2));
+
+//     res.json({
+//       success: true,
+//       total: requestsWithUrls.length,
+//       requests: requestsWithUrls,
+//     });
+//   } catch (error) {
+//     console.error('Error fetching solution requests:', error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 const getAllSolutionRequest = async (req, res) => {
   try {
-    // Fetch all solution requests (Tutor)
     const requests = await Solution.find()
       .populate('studentId', 'name email institution course avatar')
-      .sort({
-        // urgency: -1, // High → Medium → Low
-        createdAt: -1, // Newest first
-      });
+      .sort({ createdAt: -1 });
 
-    // ✅ Add file URLs + student profile image
     const requestsWithUrls = requests.map((request) => {
       const reqObj = request.toObject();
 
-      // Add file URLs for each attachment
-      reqObj.attachments = reqObj.attachments.map((file) => ({
+      // ✅ Attachments (safe)
+      reqObj.attachments = (reqObj.attachments || []).map((file) => ({
         ...file,
-        url: `${req.protocol}://${req.get('host')}/solutions/file/${
-          file.fileId
-        }`,
+        url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
       }));
 
-      // Add student profile image URL (if exists)
-      // ✅ Convert avatar buffer to base64
-      if (reqObj.studentId?.avatar?.data) {
-        reqObj.studentId.avatarUrl = `data:${
-          reqObj.studentId.avatar.contentType
-        };base64,${reqObj.studentId.avatar.data.toString('base64')}`;
-      } else {
-        // Default avatar fallback
-        reqObj.studentId.avatarUrl =
-          'https://ui-avatars.com/api/?name=User&background=random';
+      // ✅ CRITICAL FIX: studentId can be NULL
+      if (reqObj.studentId) {
+        reqObj.studentId = {
+          ...reqObj.studentId,
+          avatarUrl:
+            reqObj.studentId.avatar?.data &&
+            reqObj.studentId.avatar?.contentType
+              ? `data:${reqObj.studentId.avatar.contentType};base64,${reqObj.studentId.avatar.data.toString(
+                  'base64',
+                )}`
+              : 'https://ui-avatars.com/api/?name=User&background=random',
+        };
       }
 
       return reqObj;
     });
-    // console.log(JSON.stringify(requestsWithUrls, null, 2));
 
     res.json({
       success: true,
@@ -275,10 +318,10 @@ const getSolutionRequestById = async (req, res) => {
       const tutor = resp.tutorId;
       const tutorAvatar = tutor?.avatar?.data
         ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-            'base64'
+            'base64',
           )}`
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            tutor?.name || 'Tutor'
+            tutor?.name || 'Tutor',
           )}&background=random`;
 
       return {
@@ -311,7 +354,7 @@ const addTutorResponse = async (req, res) => {
 
     const solution = await Solution.findById(solutionRequestId).populate(
       'tutorResponses.tutorId',
-      'name email avatar'
+      'name email avatar',
     );
     if (!solution) {
       return res.status(404).json({ message: 'Solution request not found' });
@@ -335,10 +378,10 @@ const addTutorResponse = async (req, res) => {
     const tutorAvatar =
       tutor?.avatar && tutor.avatar.data
         ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-            'base64'
+            'base64',
           )}`
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            tutor?.name || 'Tutor'
+            tutor?.name || 'Tutor',
           )}&background=random`;
 
     res.status(200).json({
@@ -393,7 +436,7 @@ const getStudentSolutionRequests = async (req, res) => {
               resp.tutorId.avatar.contentType
             };base64,${resp.tutorId.avatar.data.toString('base64')}`
           : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              resp.tutorId?.name || 'Tutor'
+              resp.tutorId?.name || 'Tutor',
             )}&background=random`,
       }));
 
@@ -403,7 +446,7 @@ const getStudentSolutionRequests = async (req, res) => {
             reqObj.studentId.avatar.contentType
           };base64,${reqObj.studentId.avatar.data.toString('base64')}`
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            reqObj.studentId?.name || 'User'
+            reqObj.studentId?.name || 'User',
           )}&background=random`;
 
       return reqObj;
@@ -464,7 +507,7 @@ const getStudentSolutionById = async (req, res) => {
             resp.tutorId.avatar.contentType
           };base64,${resp.tutorId.avatar.data.toString('base64')}`
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            resp.tutorId?.name || 'Tutor'
+            resp.tutorId?.name || 'Tutor',
           )}&background=random`,
     }));
 
@@ -474,7 +517,7 @@ const getStudentSolutionById = async (req, res) => {
           reqObj.studentId.avatar.contentType
         };base64,${reqObj.studentId.avatar.data.toString('base64')}`
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          reqObj.studentId?.name || 'User'
+          reqObj.studentId?.name || 'User',
         )}&background=random`;
 
     res.status(200).json({ success: true, request: reqObj });

@@ -791,76 +791,76 @@ const getTutorBookings = async (req, res) => {
 
 //////////////////////AND
 
-const getBookingDetails = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { bookingId } = req.params;
+// const getBookingDetails = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const { bookingId } = req.params;
 
-    const booking = await Booking.findOne({
-      _id: bookingId,
-      $or: [{ tutorId: userId }, { studentId: userId }],
-    })
-      .populate('studentId', 'name email avatar about goal')
-      .populate('tutorId', 'name email avatar fees totalEarnings');
+//     const booking = await Booking.findOne({
+//       _id: bookingId,
+//       $or: [{ tutorId: userId }, { studentId: userId }],
+//     })
+//       .populate('studentId', 'name email avatar about goal')
+//       .populate('tutorId', 'name email avatar fees totalEarnings');
 
-    if (!booking) {
-      return res
-        .status(404)
-        .json({ message: 'Booking not found or unauthorized' });
-    }
+//     if (!booking) {
+//       return res
+//         .status(404)
+//         .json({ message: 'Booking not found or unauthorized' });
+//     }
 
-    // 🔹 Always allow confirmation if booking is confirmed but not completed
-    const canConfirmCompletion =
-      booking.status === 'confirmed' && !booking.completedAt;
+//     // 🔹 Always allow confirmation if booking is confirmed but not completed
+//     const canConfirmCompletion =
+//       booking.status === 'confirmed' && !booking.completedAt;
 
-    const { tutorId: tutor, studentId: student } = booking;
+//     const { tutorId: tutor, studentId: student } = booking;
 
-    const responseData = {
-      _id: booking._id,
-      courseTitle: booking.courseTitle,
-      scheduledDate: booking.scheduledDate,
-      duration: booking.duration,
-      amount: booking.amount,
-      sessionType: booking.sessionType,
-      paymentStatus: booking.paymentStatus,
-      status: booking.status,
-      reference: booking.reference,
-      adminConfirmed: booking.adminConfirmed,
-      meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
-      createdAt: booking.createdAt,
-      updatedAt: booking.updatedAt,
+//     const responseData = {
+//       _id: booking._id,
+//       courseTitle: booking.courseTitle,
+//       scheduledDate: booking.scheduledDate,
+//       duration: booking.duration,
+//       amount: booking.amount,
+//       sessionType: booking.sessionType,
+//       paymentStatus: booking.paymentStatus,
+//       status: booking.status,
+//       reference: booking.reference,
+//       adminConfirmed: booking.adminConfirmed,
+//       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
+//       createdAt: booking.createdAt,
+//       updatedAt: booking.updatedAt,
 
-      // ✅ Always show confirm button if not completed
-      canConfirmCompletion,
+//       // ✅ Always show confirm button if not completed
+//       canConfirmCompletion,
 
-      tutor: {
-        _id: tutor._id,
-        name: tutor.name,
-        email: tutor.email,
-        avatar: tutor.avatar || null,
-        totalEarnings: tutor.totalEarnings || 0,
-      },
-      student: {
-        _id: student._id,
-        name: student.name,
-        email: student.email,
-        about: student.about,
-        goal: student.goal,
-        avatar:
-          student.avatar?.data && student.avatar?.contentType
-            ? `data:${
-                student.avatar.contentType
-              };base64,${student.avatar.data.toString('base64')}`
-            : null,
-      },
-    };
+//       tutor: {
+//         _id: tutor._id,
+//         name: tutor.name,
+//         email: tutor.email,
+//         avatar: tutor.avatar || null,
+//         totalEarnings: tutor.totalEarnings || 0,
+//       },
+//       student: {
+//         _id: student._id,
+//         name: student.name,
+//         email: student.email,
+//         about: student.about,
+//         goal: student.goal,
+//         avatar:
+//           student.avatar?.data && student.avatar?.contentType
+//             ? `data:${
+//                 student.avatar.contentType
+//               };base64,${student.avatar.data.toString('base64')}`
+//             : null,
+//       },
+//     };
 
-    res.json({ success: true, booking: responseData });
-  } catch (err) {
-    console.error('getBookingDetails error:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
+//     res.json({ success: true, booking: responseData });
+//   } catch (err) {
+//     console.error('getBookingDetails error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 
 // const approveBooking = async (req, res) => {
 //   try {
@@ -1000,6 +1000,77 @@ const getBookingDetails = async (req, res) => {
 //     res.status(500).json({ message: err.message });
 //   }
 // };
+
+const getBookingDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      $or: [{ tutorId: userId }, { studentId: userId }],
+    })
+      .populate('studentId', 'name email avatar about goal')
+      .populate('tutorId', 'name email avatar fees totalEarnings');
+
+    if (!booking) {
+      return res
+        .status(404)
+        .json({ message: 'Booking not found or unauthorized' });
+    }
+
+    // 🔹 Always allow confirmation if booking is confirmed but not completed
+    const canConfirmCompletion =
+      booking.status === 'confirmed' && !booking.completedAt;
+
+    const { tutorId: tutor, studentId: student } = booking;
+
+    const responseData = {
+      _id: booking._id,
+      courseTitle: booking.courseTitle,
+      scheduledDate: booking.scheduledDate,
+      duration: booking.duration,
+      amount: booking.amount,
+      sessionType: booking.sessionType,
+      paymentStatus: booking.paymentStatus,
+      status: booking.status,
+      reference: booking.reference,
+      adminConfirmed: booking.adminConfirmed,
+      meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+
+      // ✅ Always show confirm button if not completed
+      canConfirmCompletion,
+
+      tutor: {
+        _id: tutor._id,
+        name: tutor.name,
+        email: tutor.email,
+        avatar: tutor.avatar || null,
+        totalEarnings: tutor.totalEarnings || 0,
+      },
+      student: {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        about: student.about,
+        goal: student.goal,
+        avatar:
+          student.avatar?.data && student.avatar?.contentType
+            ? `data:${
+                student.avatar.contentType
+              };base64,${student.avatar.data.toString('base64')}`
+            : null,
+      },
+    };
+
+    res.json({ success: true, booking: responseData });
+  } catch (err) {
+    console.error('getBookingDetails error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
 
 const getStudentBookings = async (req, res) => {
   try {
