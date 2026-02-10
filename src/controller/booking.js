@@ -237,9 +237,9 @@ const bookTutor = async (req, res) => {
     // ✅ attachment MUST be inside the function
     const uploadedFile = req.file
       ? {
-          filename: req.file.filename, // ✅ IMPORTANT
-          originalName: req.file.originalname,
+          data: req.file.buffer.toString('base64'),
           mimeType: req.file.mimetype,
+          originalName: req.file.originalname,
           size: req.file.size,
         }
       : null;
@@ -1118,10 +1118,10 @@ const getBookingDetails = async (req, res) => {
 
       studentFile: booking.uploadedFile
         ? {
-            url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
             originalName: booking.uploadedFile.originalName,
             mimeType: booking.uploadedFile.mimeType,
             size: booking.uploadedFile.size,
+            url: `data:${booking.uploadedFile.mimeType};base64,${booking.uploadedFile.data}`,
           }
         : null,
 

@@ -1,24 +1,24 @@
-// const multer = require('multer');
+const multer = require('multer');
 
-// const storage = multer.memoryStorage();
+const storage = multer.memoryStorage();
 
-// const upload = multer({
-//   storage,
-//   limits: { fileSize: 5 * 1024 * 1024 }, // 5mb limit
-//   fileFilter: (req, file, cb) => {
-//     if (
-//       file.mimetype === 'image/jpeg' ||
-//       file.mimetype === 'image/png' ||
-//       file.mimetype === 'image/jpg'
-//     ) {
-//       cb(null, true);
-//     } else {
-//       cb(new Error('Only .jpeg, .jpg, .png allowed'), false);
-//     }
-//   },
-// });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5mb limit
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype === 'image/jpeg' ||
+      file.mimetype === 'image/png' ||
+      file.mimetype === 'image/jpg'
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .jpeg, .jpg, .png allowed'), false);
+    }
+  },
+});
 
-// module.exports = upload;
+module.exports = upload;
 
 // const upload = require('../middlewares/upload');
 
@@ -72,51 +72,42 @@
 
 // module.exports = upload;
 
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+// import multer from 'multer';
+// import path from 'path';
+// import fs from 'fs';
 
-const uploadDir =
-  process.env.NODE_ENV === 'production' ? '/tmp/bookings' : 'uploads/bookings';
+// const uploadDir = path.join('uploads', 'bookings');
 
-// Ensure directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir, { recursive: true });
+// }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(
-      Math.random() * 1e9,
-    )}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  },
-});
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, uploadDir);
+//   },
+//   filename: (req, file, cb) => {
+//     const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9);
+//     cb(null, uniqueName + path.extname(file.originalname));
+//   },
+// });
 
-const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = [
-    'image/jpeg',
-    'image/png',
-    'image/jpg',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ];
+// const imageFileFilter = (req, file, cb) => {
+//   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
-  if (allowedMimeTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only images, PDF, and Word documents are allowed'), false);
-  }
-};
+//   if (!allowedTypes.includes(file.mimetype)) {
+//     cb(new Error('Only image files (jpg, png, webp) are allowed'), false);
+//   } else {
+//     cb(null, true);
+//   }
+// };
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter,
-});
+// const uploadBookingImage = multer({
+//   storage,
+//   fileFilter: imageFileFilter,
+//   limits: {
+//     fileSize: 5 * 1024 * 1024, // 5MB
+//   },
+// });
 
-module.exports = upload;
+// export default uploadBookingImage;
