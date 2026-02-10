@@ -1116,12 +1116,21 @@ const getBookingDetails = async (req, res) => {
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
 
+      // studentFile: booking.uploadedFile
+      //   ? {
+      //       originalName: booking.uploadedFile.originalName,
+      //       mimeType: booking.uploadedFile.mimeType,
+      //       size: booking.uploadedFile.size,
+      //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+      //     }
+      //   : null,
+
       studentFile: booking.uploadedFile
         ? {
             originalName: booking.uploadedFile.originalName,
             mimeType: booking.uploadedFile.mimeType,
             size: booking.uploadedFile.size,
-            url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+            url: `data:${booking.uploadedFile.mimeType};base64,${booking.uploadedFile.data}`,
           }
         : null,
 
