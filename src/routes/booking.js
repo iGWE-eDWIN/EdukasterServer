@@ -1,5 +1,4 @@
 const express = require('express');
-const uploads = require('../middleware/bookingUpload');
 const { auth, authorize } = require('../middleware/auth');
 const uploads = require('../middleware/bookingUpload');
 const {
