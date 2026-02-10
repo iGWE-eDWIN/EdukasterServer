@@ -1094,14 +1094,14 @@ const getBookingDetails = async (req, res) => {
     const tutor = booking.tutorId;
 
     // ✅ build public file URL
-    const studentFile = booking.uploadedFile
-      ? {
-          originalName: booking.uploadedFile.originalName,
-          mimeType: booking.uploadedFile.mimeType,
-          size: booking.uploadedFile.size,
-          url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
-        }
-      : null;
+    // const studentFile = booking.uploadedFile
+    //   ? {
+    //       originalName: booking.uploadedFile.originalName,
+    //       mimeType: booking.uploadedFile.mimeType,
+    //       size: booking.uploadedFile.size,
+    //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+    //     }
+    //   : null;
 
     const responseData = {
       _id: booking._id,
