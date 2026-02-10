@@ -1,4 +1,5 @@
 const express = require('express');
+const uploads = require('../middleware/bookingUpload');
 const { auth, authorize } = require('../middleware/auth');
 const uploads = require('../middleware/bookingUpload');
 const {
@@ -90,20 +91,12 @@ router.get(
 
 router.get('/bookings/file/:filename', (req, res) => {
   const { filename } = req.params;
+  const filePath = path.join(__dirname, '..', 'uploads', 'bookings', filename);
 
-  const baseDir =
-    process.env.NODE_ENV === 'production'
-      ? '/tmp/bookings'
-      : path.join(__dirname, '..', 'uploads', 'bookings');
-
-  const filePath = path.join(baseDir, filename);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ message: 'File not found' });
-  }
-
-  // 🔥 VERY IMPORTANT
-  res.sendFile(filePath);
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) return res.status(404).json({ message: 'File not found' });
+    res.sendFile(filePath);
+  });
 });
 
 router.get('/bookings/:bookingId', auth, getBookingDetails);
