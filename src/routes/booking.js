@@ -57,7 +57,18 @@ router.get(
 // import fs from 'fs';
 
 // Serve student uploaded files
-router.get('/bookings/file/:filename', auth, (req, res) => {
+// router.get('/bookings/file/:filename', auth, (req, res) => {
+//   const { filename } = req.params;
+//   const filePath = path.join(__dirname, '..', 'uploads', 'bookings', filename);
+
+//   if (!fs.existsSync(filePath)) {
+//     return res.status(404).json({ message: 'File not found' });
+//   }
+
+//   res.sendFile(filePath);
+// });
+
+router.get('/bookings/file/:filename', (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(__dirname, '..', 'uploads', 'bookings', filename);
 
@@ -65,6 +76,7 @@ router.get('/bookings/file/:filename', auth, (req, res) => {
     return res.status(404).json({ message: 'File not found' });
   }
 
+  res.setHeader('Content-Type', 'application/pdf');
   res.sendFile(filePath);
 });
 
