@@ -1,6 +1,6 @@
 const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
-const upload = require('../middleware/uploads');
+const { uploads } = require('../middleware/uploads');
 const {
   getTutorAvailability,
   bookTutor,
@@ -19,7 +19,7 @@ const fs = require('fs');
 const router = express.Router();
 router.get('/bookings/tutor/:id/availability', auth, getTutorAvailability);
 
-router.post('/bookings', auth, upload.single('attachment'), bookTutor);
+router.post('/bookings', auth, uploads.single('attachment'), bookTutor);
 router.get('/bookings/verify/:reference', verifyBookingPayment);
 
 // Admin only
