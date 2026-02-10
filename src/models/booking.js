@@ -116,7 +116,7 @@ bookingSchema = new Schema(
     meetingLink: String,
     sessionNotes: String,
     uploadedFile: {
-      data: String,
+      filename: String, // <- new
       originalName: String,
       mimeType: String,
       size: Number,

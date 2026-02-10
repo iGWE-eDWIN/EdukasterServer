@@ -237,7 +237,7 @@ const bookTutor = async (req, res) => {
     // ✅ attachment MUST be inside the function
     const uploadedFile = req.file
       ? {
-          data: req.file.buffer.toString('base64'),
+          filename: req.file.filename,
           mimeType: req.file.mimetype,
           originalName: req.file.originalname,
           size: req.file.size,
