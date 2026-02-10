@@ -1,6 +1,6 @@
 const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
-const { uploads } = require('../middleware/uploads');
+const uploads = require('../middleware/bookingUpload');
 const {
   getTutorAvailability,
   bookTutor,
