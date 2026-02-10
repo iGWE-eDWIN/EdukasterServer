@@ -1121,7 +1121,7 @@ const getBookingDetails = async (req, res) => {
             originalName: booking.uploadedFile.originalName,
             mimeType: booking.uploadedFile.mimeType,
             size: booking.uploadedFile.size,
-            url: `data:${booking.uploadedFile.mimeType};base64,${booking.uploadedFile.data}`,
+            url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
           }
         : null,
 
