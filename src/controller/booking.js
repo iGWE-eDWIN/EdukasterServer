@@ -11,6 +11,8 @@ const NotificationService = require('../services/notificationService');
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
 const { sendPushNotification } = require('../services/pushService');
+const fs = require('fs');
+const path = require('path');
 
 const getTutorAvailability = async (req, res) => {
   try {
@@ -1072,6 +1074,99 @@ const getTutorBookings = async (req, res) => {
 //   }
 // };
 
+// const getBookingDetails = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const { bookingId } = req.params;
+
+//     const booking = await Booking.findOne({
+//       _id: bookingId,
+//       $or: [{ tutorId: userId }, { studentId: userId }],
+//     })
+//       .populate('studentId', 'name email avatar about goal')
+//       .populate('tutorId', 'name email avatar fees totalEarnings');
+
+//     if (!booking) {
+//       return res
+//         .status(404)
+//         .json({ message: 'Booking not found or unauthorized' });
+//     }
+
+//     const student = booking.studentId;
+//     const tutor = booking.tutorId;
+
+//     // ✅ build public file URL
+//     // const studentFile = booking.uploadedFile
+//     //   ? {
+//     //       originalName: booking.uploadedFile.originalName,
+//     //       mimeType: booking.uploadedFile.mimeType,
+//     //       size: booking.uploadedFile.size,
+//     //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+//     //     }
+//     //   : null;
+
+//     const responseData = {
+//       _id: booking._id,
+//       courseTitle: booking.courseTitle,
+//       scheduledDate: booking.scheduledDate,
+//       duration: booking.duration,
+//       amount: booking.amount,
+//       sessionType: booking.sessionType,
+//       paymentStatus: booking.paymentStatus,
+//       status: booking.status,
+//       adminConfirmed: booking.adminConfirmed,
+//       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
+//       createdAt: booking.createdAt,
+
+//       // studentFile: booking.uploadedFile
+//       //   ? {
+//       //       originalName: booking.uploadedFile.originalName,
+//       //       mimeType: booking.uploadedFile.mimeType,
+//       //       size: booking.uploadedFile.size,
+//       //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+//       //     }
+//       //   : null,
+
+//       studentFile: booking.uploadedFile
+//         ? {
+//             originalName: booking.uploadedFile.originalName,
+//             mimeType: booking.uploadedFile.mimeType,
+//             size: booking.uploadedFile.size,
+//             url: `data:${booking.uploadedFile.mimeType};base64,${booking.uploadedFile.data}`,
+//           }
+//         : null,
+
+//       student: student && {
+//         _id: student._id,
+//         name: student.name,
+//         email: student.email,
+//         about: student.about,
+//         goal: student.goal,
+//         avatar:
+//           student.avatar?.data && student.avatar?.contentType
+//             ? `data:${student.avatar.contentType};base64,${student.avatar.data.toString('base64')}`
+//             : null,
+//       },
+
+//       tutor: tutor && {
+//         _id: tutor._id,
+//         name: tutor.name,
+//         email: tutor.email,
+//         totalEarnings: tutor.totalEarnings || 0,
+//         avatar:
+//           tutor.avatar?.data && tutor.avatar?.contentType
+//             ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString('base64')}`
+//             : null,
+//       },
+//     };
+
+//     res.json({ success: true, booking: responseData });
+//   } catch (err) {
+//     console.error('getBookingDetails error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
 const getBookingDetails = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -1093,15 +1188,15 @@ const getBookingDetails = async (req, res) => {
     const student = booking.studentId;
     const tutor = booking.tutorId;
 
-    // ✅ build public file URL
-    // const studentFile = booking.uploadedFile
-    //   ? {
-    //       originalName: booking.uploadedFile.originalName,
-    //       mimeType: booking.uploadedFile.mimeType,
-    //       size: booking.uploadedFile.size,
-    //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
-    //     }
-    //   : null;
+    // Build file URL if uploaded
+    const studentFile = booking.uploadedFile
+      ? {
+          originalName: booking.uploadedFile.originalName,
+          mimeType: booking.uploadedFile.mimeType,
+          size: booking.uploadedFile.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+        }
+      : null;
 
     const responseData = {
       _id: booking._id,
@@ -1115,47 +1210,30 @@ const getBookingDetails = async (req, res) => {
       adminConfirmed: booking.adminConfirmed,
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
-
-      // studentFile: booking.uploadedFile
-      //   ? {
-      //       originalName: booking.uploadedFile.originalName,
-      //       mimeType: booking.uploadedFile.mimeType,
-      //       size: booking.uploadedFile.size,
-      //       url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
-      //     }
-      //   : null,
-
-      studentFile: booking.uploadedFile
+      studentFile,
+      student: student
         ? {
-            originalName: booking.uploadedFile.originalName,
-            mimeType: booking.uploadedFile.mimeType,
-            size: booking.uploadedFile.size,
-            url: `data:${booking.uploadedFile.mimeType};base64,${booking.uploadedFile.data}`,
+            _id: student._id,
+            name: student.name,
+            email: student.email,
+            about: student.about,
+            goal: student.goal,
+            avatar: student.avatar
+              ? `${req.protocol}://${req.get('host')}/users/avatar/${student._id}`
+              : null,
           }
         : null,
-
-      student: student && {
-        _id: student._id,
-        name: student.name,
-        email: student.email,
-        about: student.about,
-        goal: student.goal,
-        avatar:
-          student.avatar?.data && student.avatar?.contentType
-            ? `data:${student.avatar.contentType};base64,${student.avatar.data.toString('base64')}`
-            : null,
-      },
-
-      tutor: tutor && {
-        _id: tutor._id,
-        name: tutor.name,
-        email: tutor.email,
-        totalEarnings: tutor.totalEarnings || 0,
-        avatar:
-          tutor.avatar?.data && tutor.avatar?.contentType
-            ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString('base64')}`
-            : null,
-      },
+      tutor: tutor
+        ? {
+            _id: tutor._id,
+            name: tutor.name,
+            email: tutor.email,
+            totalEarnings: tutor.totalEarnings || 0,
+            avatar: tutor.avatar
+              ? `${req.protocol}://${req.get('host')}/users/avatar/${tutor._id}`
+              : null,
+          }
+        : null,
     };
 
     res.json({ success: true, booking: responseData });
