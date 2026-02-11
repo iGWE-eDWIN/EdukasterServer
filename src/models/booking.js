@@ -83,7 +83,15 @@ bookingSchema = new Schema(
       required: true,
       default: '1on1',
     },
-    courseTitle: { type: String, required: true }, // you said tutor booking is based on courseTitle
+    groupStudents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    fixedPrice: { type: Number }, // 140000 for English Proficiency
+    fixedDuration: { type: Number }, // 2 weeks in minutes
+    courseTitle: { type: String, required: true },
     scheduledDate: {
       type: Date,
       required: true,

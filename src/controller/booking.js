@@ -234,35 +234,267 @@ const getTutorAvailability = async (req, res) => {
 //   }
 // };
 
+// bookTutor with file upload handling
+// const bookTutor = async (req, res) => {
+//   try {
+//     const studentId = req.user._id;
+
+//     // ✅ attachment MUST be inside the function
+//     // const uploadedFile = req.file
+//     //   ? {
+//     //       filename: req.file.filename,
+//     //       mimeType: req.file.mimetype,
+//     //       originalName: req.file.originalname,
+//     //       size: req.file.size,
+//     //     }
+//     //   : null;
+
+//     let uploadedFileData = null;
+
+//     if (req.file) {
+//       const uploadDir =
+//         process.env.NODE_ENV === 'production'
+//           ? '/tmp/bookings'
+//           : path.join(__dirname, '..', 'uploads', 'bookings');
+
+//       if (!fs.existsSync(uploadDir)) {
+//         fs.mkdirSync(uploadDir, { recursive: true });
+//       }
+
+//       const uniqueName = `${Date.now()}-${req.file.originalname}`;
+//       const filePath = path.join(uploadDir, uniqueName);
+
+//       fs.writeFileSync(filePath, req.file.buffer);
+
+//       uploadedFileData = {
+//         filename: uniqueName,
+//         originalName: req.file.originalname,
+//         mimeType: req.file.mimetype,
+//         size: req.file.size,
+//         url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+//       };
+//     }
+
+//     const {
+//       tutorId,
+//       courseTitle,
+//       scheduledDate,
+//       sessionType = '1on1',
+//       duration = 60,
+//       paymentMethod = 'wallet',
+//       redirectUrl,
+//     } = req.body;
+
+//     if (!tutorId || !scheduledDate || !courseTitle) {
+//       return res.status(400).json({ message: 'Missing required fields' });
+//     }
+
+//     const tutor = await User.findById(tutorId);
+//     if (!tutor || tutor.role !== 'tutor') {
+//       return res.status(404).json({ message: 'Tutor not found' });
+//     }
+
+//     // // 🔹 Handle English Proficiency Group Session
+//     // if (courseTitle === 'English Proficiency') {
+//     //   // Check if a group session exists for this tutor
+//     //   let booking = await Booking.findOne({
+//     //     tutorId,
+//     //     courseTitle,
+//     //     sessionType: 'group',
+//     //     status: { $in: ['pending', 'confirmed'] },
+//     //   });
+
+//     //   if (!booking) {
+//     //     // Create a new group session
+//     //     booking = await Booking.create({
+//     //       tutorId,
+//     //       courseTitle,
+//     //       sessionType: 'group',
+//     //       groupStudents: [studentId],
+//     //       scheduledDate: new Date(scheduledDate),
+//     //       duration: 14 * 24 * 60, // 2 weeks in minutes
+//     //       amount: 140000,
+//     //       paymentStatus: 'pending',
+//     //       status: 'pending',
+//     //     });
+//     //   } else {
+//     //     // Add student if not already enrolled
+//     //     if (booking.groupStudents.includes(studentId)) {
+//     //       return res
+//     //         .status(400)
+//     //         .json({ message: 'You have already joined this session' });
+//     //     }
+//     //     booking.groupStudents.push(studentId);
+//     //     await booking.save();
+//     //   }
+
+//     //   // Handle payment for group session
+//     //   if (paymentMethod === 'wallet') {
+//     //     const student = await User.findById(studentId);
+//     //     if (!student || student.walletBalance < 140000) {
+//     //       return res
+//     //         .status(402)
+//     //         .json({ message: 'Insufficient wallet balance for group session' });
+//     //     }
+
+//     //     const balanceBefore = student.walletBalance;
+//     //     student.walletBalance -= 140000;
+//     //     await student.save();
+
+//     //     await Wallet.create({
+//     //       userId: student._id,
+//     //       type: 'debit',
+//     //       amount: 140000,
+//     //       description: `Booking for English Proficiency with ${tutor.name}`,
+//     //       category: 'booking',
+//     //       balanceBefore: balanceBefore,
+//     //       balanceAfter: student.walletBalance,
+//     //     });
+
+//     //     booking.paymentStatus = 'paid';
+//     //     // booking.status = 'confirmed';
+//     //     await booking.save();
+
+//     //     return res.status(200).json({
+//     //       success: true,
+//     //       message: 'Joined English Proficiency session',
+//     //       booking,
+//     //       walletBalance: student.walletBalance,
+//     //     });
+//     //   }
+
+//     //   // For Paystack, you would implement similar logic as the individual booking, but ensure that the booking is created/updated with sessionType 'group' and handle payments accordingly.
+//     // }
+
+//     const amount =
+//       tutor.fees?.totalFee ||
+//       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+
+//     if (!amount || amount <= 0) {
+//       return res.status(400).json({ message: 'Invalid tutor fee' });
+//     }
+
+//     const requestedStart = new Date(scheduledDate);
+//     const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
+
+//     const bookingsThatDay = await Booking.find({
+//       tutorId,
+//       status: { $in: ['pending', 'approved'] },
+//     });
+
+//     const collides = bookingsThatDay.some((b) => {
+//       const bStart = new Date(b.scheduledDate);
+//       const bEnd = new Date(bStart.getTime() + b.duration * 60000);
+//       return requestedStart < bEnd && requestedEnd > bStart;
+//     });
+
+//     if (collides) {
+//       return res.status(400).json({ message: 'Requested slot already booked' });
+//     }
+
+//     // ================= WALLET PAYMENT =================
+//     if (paymentMethod === 'wallet') {
+//       const student = await User.findById(studentId);
+
+//       if (!student || student.walletBalance < amount) {
+//         return res.status(402).json({ message: 'Insufficient wallet balance' });
+//       }
+
+//       const balanceBefore = student.walletBalance;
+//       student.walletBalance -= amount;
+//       await student.save();
+
+//       const booking = await Booking.create({
+//         studentId,
+//         tutorId,
+//         courseTitle,
+//         scheduledDate: requestedStart,
+//         duration,
+//         amount,
+//         sessionType,
+//         paymentMethod: 'wallet',
+//         status: 'pending', // 🔒 admin must approve
+//         paymentStatus: 'paid',
+//         uploadedFile: uploadedFileData,
+//       });
+
+//       await Wallet.create({
+//         userId: student._id,
+//         type: 'debit',
+//         amount,
+//         description: `Booking with tutor ${tutor.name} for ${courseTitle}`,
+//         category: 'booking',
+//         balanceBefore,
+//         balanceAfter: student.walletBalance,
+//       });
+
+//       return res.status(200).json({
+//         success: true,
+//         message: 'Booking created. Awaiting admin approval',
+//         booking,
+//         walletBalance: student.walletBalance,
+//       });
+//     }
+
+//     // ================= PAYSTACK PAYMENT =================
+//     if (paymentMethod === 'paystack') {
+//       const reference = paystackService.generateReference();
+//       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
+
+//       const paymentData = await paystackService.initializeTransaction({
+//         email: req.user.email,
+//         amount,
+//         reference,
+//         callback_url: callbackUrl,
+//         metadata: {
+//           studentId,
+//           tutorId,
+//           courseTitle,
+//           scheduledDate,
+//           duration,
+//           sessionType,
+//           amount,
+//           redirectUrl,
+//           uploadedFile: uploadedFileData, // ✅ preserve file info
+//         },
+//       });
+
+//       if (!paymentData.success) {
+//         return res.status(400).json({ message: paymentData.message });
+//       }
+
+//       return res.status(200).json({
+//         success: true,
+//         message: 'Complete payment to finish booking',
+//         authorization_url: paymentData.data.data.authorization_url,
+//         reference,
+//       });
+//     }
+
+//     return res.status(400).json({ message: 'Invalid payment method' });
+//   } catch (err) {
+//     console.error('bookTutor error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
 const bookTutor = async (req, res) => {
   try {
     const studentId = req.user._id;
 
-    // ✅ attachment MUST be inside the function
-    // const uploadedFile = req.file
-    //   ? {
-    //       filename: req.file.filename,
-    //       mimeType: req.file.mimetype,
-    //       originalName: req.file.originalname,
-    //       size: req.file.size,
-    //     }
-    //   : null;
-
+    // Handle file upload
     let uploadedFileData = null;
-
     if (req.file) {
       const uploadDir =
         process.env.NODE_ENV === 'production'
           ? '/tmp/bookings'
           : path.join(__dirname, '..', 'uploads', 'bookings');
 
-      if (!fs.existsSync(uploadDir)) {
+      if (!fs.existsSync(uploadDir))
         fs.mkdirSync(uploadDir, { recursive: true });
-      }
 
       const uniqueName = `${Date.now()}-${req.file.originalname}`;
       const filePath = path.join(uploadDir, uniqueName);
-
       fs.writeFileSync(filePath, req.file.buffer);
 
       uploadedFileData = {
@@ -293,63 +525,112 @@ const bookTutor = async (req, res) => {
       return res.status(404).json({ message: 'Tutor not found' });
     }
 
-    const amount =
+    // Determine session type and amount
+    let finalSessionType = sessionType;
+    let finalAmount =
       tutor.fees?.totalFee ||
       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+    let finalDuration = duration;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Invalid tutor fee' });
+    if (courseTitle === 'English Proficiency') {
+      finalSessionType = 'group';
+      finalAmount = 140000;
+      finalDuration = 14 * 24 * 60; // 2 weeks in minutes
     }
 
-    const requestedStart = new Date(scheduledDate);
-    const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
+    // Check for 1-on-1 collisions
+    if (finalSessionType === '1on1') {
+      const requestedStart = new Date(scheduledDate);
+      const requestedEnd = new Date(
+        requestedStart.getTime() + finalDuration * 60000,
+      );
 
-    const bookingsThatDay = await Booking.find({
-      tutorId,
-      status: { $in: ['pending', 'approved'] },
-    });
+      const bookingsThatDay = await Booking.find({
+        tutorId,
+        status: { $in: ['pending', 'confirmed'] },
+      });
 
-    const collides = bookingsThatDay.some((b) => {
-      const bStart = new Date(b.scheduledDate);
-      const bEnd = new Date(bStart.getTime() + b.duration * 60000);
-      return requestedStart < bEnd && requestedEnd > bStart;
-    });
+      const collides = bookingsThatDay.some((b) => {
+        const bStart = new Date(b.scheduledDate);
+        const bEnd = new Date(bStart.getTime() + b.duration * 60000);
+        return requestedStart < bEnd && requestedEnd > bStart;
+      });
 
-    if (collides) {
-      return res.status(400).json({ message: 'Requested slot already booked' });
+      if (collides) {
+        return res
+          .status(400)
+          .json({ message: 'Requested slot already booked' });
+      }
     }
 
     // ================= WALLET PAYMENT =================
     if (paymentMethod === 'wallet') {
       const student = await User.findById(studentId);
-
-      if (!student || student.walletBalance < amount) {
+      if (!student || student.walletBalance < finalAmount) {
         return res.status(402).json({ message: 'Insufficient wallet balance' });
       }
 
       const balanceBefore = student.walletBalance;
-      student.walletBalance -= amount;
+      student.walletBalance -= finalAmount;
       await student.save();
 
-      const booking = await Booking.create({
-        studentId,
-        tutorId,
-        courseTitle,
-        scheduledDate: requestedStart,
-        duration,
-        amount,
-        sessionType,
-        paymentMethod: 'wallet',
-        status: 'pending', // 🔒 admin must approve
-        paymentStatus: 'paid',
-        uploadedFile: uploadedFileData,
-      });
+      let booking;
+      if (finalSessionType === 'group') {
+        // Group session booking
+        booking = await Booking.findOne({
+          tutorId,
+          courseTitle,
+          sessionType: 'group',
+          status: { $in: ['pending', 'confirmed'] },
+        });
+
+        if (!booking) {
+          booking = await Booking.create({
+            tutorId,
+            courseTitle,
+            sessionType: 'group',
+            groupStudents: [studentId],
+            scheduledDate: new Date(scheduledDate),
+            duration: finalDuration,
+            amount: finalAmount,
+            paymentStatus: 'paid',
+            status: 'pending',
+            uploadedFile: uploadedFileData,
+          });
+        } else {
+          if (booking.groupStudents.includes(studentId)) {
+            return res
+              .status(400)
+              .json({ message: 'Already joined this session' });
+          }
+          booking.groupStudents.push(studentId);
+          await booking.save();
+        }
+      } else {
+        // 1-on-1 session
+        booking = await Booking.create({
+          studentId,
+          tutorId,
+          courseTitle,
+          scheduledDate: new Date(scheduledDate),
+          duration: finalDuration,
+          amount: finalAmount,
+          sessionType: '1on1',
+          paymentMethod: 'wallet',
+          status: 'pending',
+          paymentStatus: 'paid',
+          uploadedFile: uploadedFileData,
+        });
+      }
 
       await Wallet.create({
         userId: student._id,
         type: 'debit',
-        amount,
-        description: `Booking with tutor ${tutor.name} for ${courseTitle}`,
+        amount: finalAmount,
+        description:
+          finalSessionType === 'group'
+            ? `Booking for English Proficiency with ${tutor.name}`
+            : `Booking with tutor ${tutor.name} for ${courseTitle}`,
         category: 'booking',
         balanceBefore,
         balanceAfter: student.walletBalance,
@@ -357,7 +638,10 @@ const bookTutor = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: 'Booking created. Awaiting admin approval',
+        message:
+          finalSessionType === 'group'
+            ? 'Joined English Proficiency session'
+            : 'Booking created. Awaiting admin approval',
         booking,
         walletBalance: student.walletBalance,
       });
@@ -368,21 +652,69 @@ const bookTutor = async (req, res) => {
       const reference = paystackService.generateReference();
       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
 
+      let booking;
+      if (finalSessionType === 'group') {
+        // Check if group session exists
+        booking = await Booking.findOne({
+          tutorId,
+          courseTitle,
+          sessionType: 'group',
+          status: { $in: ['pending', 'confirmed'] },
+        });
+
+        if (!booking) {
+          booking = await Booking.create({
+            tutorId,
+            courseTitle,
+            sessionType: 'group',
+            groupStudents: [studentId],
+            scheduledDate: new Date(scheduledDate),
+            duration: finalDuration,
+            amount: finalAmount,
+            paymentStatus: 'pending',
+            status: 'pending',
+            uploadedFile: uploadedFileData,
+          });
+        } else {
+          if (booking.groupStudents.includes(studentId)) {
+            return res
+              .status(400)
+              .json({ message: 'Already joined this session' });
+          }
+          booking.groupStudents.push(studentId);
+          await booking.save();
+        }
+      } else {
+        booking = await Booking.create({
+          studentId,
+          tutorId,
+          courseTitle,
+          scheduledDate: new Date(scheduledDate),
+          duration: finalDuration,
+          amount: finalAmount,
+          sessionType: '1on1',
+          paymentMethod: 'paystack',
+          status: 'pending',
+          paymentStatus: 'pending',
+          uploadedFile: uploadedFileData,
+        });
+      }
+
       const paymentData = await paystackService.initializeTransaction({
         email: req.user.email,
-        amount,
+        amount: finalAmount,
         reference,
         callback_url: callbackUrl,
         metadata: {
           studentId,
           tutorId,
+          bookingId: booking._id,
           courseTitle,
           scheduledDate,
-          duration,
-          sessionType,
-          amount,
+          sessionType: finalSessionType,
+          amount: finalAmount,
           redirectUrl,
-          uploadedFile: uploadedFileData, // ✅ preserve file info
+          uploadedFile: uploadedFileData,
         },
       });
 
@@ -392,7 +724,10 @@ const bookTutor = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: 'Complete payment to finish booking',
+        message:
+          finalSessionType === 'group'
+            ? 'Complete payment to join English Proficiency session'
+            : 'Complete payment to finish booking',
         authorization_url: paymentData.data.data.authorization_url,
         reference,
       });
@@ -486,6 +821,88 @@ const bookTutor = async (req, res) => {
 //   }
 // };
 
+// verfy with file upload handling
+// const verifyBookingPayment = async (req, res) => {
+//   try {
+//     const { reference } = req.params;
+
+//     const verification = await paystackService.verifyTransaction(reference);
+
+//     if (
+//       !verification.success ||
+//       !verification.data?.data ||
+//       verification.data.data.status !== 'success'
+//     ) {
+//       const redirectFail =
+//         verification?.data?.data?.metadata?.redirectUrl || '/';
+//       return res.redirect(`${redirectFail}?status=failed`);
+//     }
+
+//     const meta = verification.data.data.metadata;
+
+//     const {
+//       studentId,
+//       tutorId,
+//       courseTitle,
+//       scheduledDate,
+//       duration,
+//       sessionType,
+//       amount,
+//       redirectUrl,
+//       uploadedFile, // ✅ restored correctly
+//     } = meta;
+
+//     const requestedStart = new Date(scheduledDate);
+
+//     const booking = await Booking.create({
+//       studentId,
+//       tutorId,
+//       courseTitle,
+//       scheduledDate: requestedStart,
+//       duration,
+//       sessionType,
+//       amount,
+//       paymentMethod: 'paystack',
+//       status: 'pending', // 🔒 admin approval required
+//       paymentStatus: 'paid',
+//       paystackReference: reference,
+//       uploadedFile,
+//     });
+
+//     const tutor = await User.findById(tutorId);
+//     const { tutorShare, adminShare } = computeShares(amount, tutor);
+
+//     await Session.create({
+//       bookingId: booking._id,
+//       tutorId,
+//       studentId,
+//       scheduledDate: requestedStart,
+//       duration,
+//       amount,
+//       tutorShare,
+//       adminShare,
+//       status: 'scheduled',
+//     });
+
+//     await Wallet.create({
+//       userId: studentId,
+//       type: 'debit',
+//       amount,
+//       description: `Booking payment for tutor ${tutor?.name}`,
+//       category: 'booking',
+//       balanceBefore: 0,
+//       balanceAfter: 0,
+//       paymentMethod: 'paystack',
+//     });
+
+//     const redirect = `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`;
+//     return res.redirect(redirect);
+//   } catch (err) {
+//     console.error('verifyBookingPayment error:', err);
+//     return res.status(500).send('Payment verification failed');
+//   }
+// };
+
 const verifyBookingPayment = async (req, res) => {
   try {
     const { reference } = req.params;
@@ -503,64 +920,65 @@ const verifyBookingPayment = async (req, res) => {
     }
 
     const meta = verification.data.data.metadata;
-
     const {
       studentId,
       tutorId,
+      bookingId,
       courseTitle,
       scheduledDate,
-      duration,
       sessionType,
       amount,
       redirectUrl,
-      uploadedFile, // ✅ restored correctly
+      uploadedFile,
     } = meta;
 
-    const requestedStart = new Date(scheduledDate);
+    let booking;
+    if (sessionType === 'group') {
+      booking = await Booking.findById(bookingId);
+      if (!booking.groupStudents.includes(studentId)) {
+        booking.groupStudents.push(studentId);
+        booking.paymentStatus = 'paid'; // only student paid
+        await booking.save();
+      }
+    } else {
+      booking = await Booking.findById(bookingId);
+      booking.paymentStatus = 'paid';
+      booking.status = 'pending'; // admin approval required
+      await booking.save();
+    }
 
-    const booking = await Booking.create({
-      studentId,
-      tutorId,
-      courseTitle,
-      scheduledDate: requestedStart,
-      duration,
-      sessionType,
-      amount,
-      paymentMethod: 'paystack',
-      status: 'pending', // 🔒 admin approval required
-      paymentStatus: 'paid',
-      paystackReference: reference,
-      uploadedFile,
-    });
+    // For 1-on-1, create session immediately
+    if (sessionType === '1on1') {
+      const tutor = await User.findById(tutorId);
+      const { tutorShare, adminShare } = computeShares(amount, tutor);
 
-    const tutor = await User.findById(tutorId);
-    const { tutorShare, adminShare } = computeShares(amount, tutor);
+      await Session.create({
+        bookingId: booking._id,
+        tutorId,
+        studentId,
+        scheduledDate: new Date(scheduledDate),
+        duration: booking.duration,
+        amount,
+        tutorShare,
+        adminShare,
+        status: 'scheduled',
+      });
 
-    await Session.create({
-      bookingId: booking._id,
-      tutorId,
-      studentId,
-      scheduledDate: requestedStart,
-      duration,
-      amount,
-      tutorShare,
-      adminShare,
-      status: 'scheduled',
-    });
+      await Wallet.create({
+        userId: studentId,
+        type: 'debit',
+        amount,
+        description: `Booking payment for tutor ${tutor?.name}`,
+        category: 'booking',
+        balanceBefore: 0,
+        balanceAfter: 0,
+        paymentMethod: 'paystack',
+      });
+    }
 
-    await Wallet.create({
-      userId: studentId,
-      type: 'debit',
-      amount,
-      description: `Booking payment for tutor ${tutor?.name}`,
-      category: 'booking',
-      balanceBefore: 0,
-      balanceAfter: 0,
-      paymentMethod: 'paystack',
-    });
-
-    const redirect = `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`;
-    return res.redirect(redirect);
+    return res.redirect(
+      `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`,
+    );
   } catch (err) {
     console.error('verifyBookingPayment error:', err);
     return res.status(500).send('Payment verification failed');
@@ -1556,24 +1974,75 @@ const approveBooking = async (req, res) => {
     /* =======================
        EMAILS (UNCHANGED LOGIC)
     ======================= */
-    const tutorHtml = `
-      <div style="font-family: Arial; padding:20px;">
-        <h2>Session Confirmed</h2>
-        <p>Your session with ${student.name} is confirmed.</p>
-        <p>Meeting link: <a href="${meetingLink}">${meetingLink}</a></p>
-      </div>
-    `;
+    // Send mail to tutor and student about session
+    let html;
+    try {
+      html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
 
-    const studentHtml = `
-      <div style="font-family: Arial; padding:20px;">
-        <h2>Session Confirmed</h2>
-        <p>Your session with ${tutor.name} is confirmed.</p>
-        <p>Meeting link: <a href="${meetingLink}">${meetingLink}</a></p>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
       </div>
-    `;
 
-    await sendEmail(tutor.email, 'Booking Session Approved', tutorHtml);
-    await sendEmail(student.email, 'Booking Session Approved', studentHtml);
+      <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Your session with <strong>${student?.name}</strong> is confirmed.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+      await sendEmail(tutor?.email, 'Booking Session', html);
+    } catch (mailErr) {
+      return res.status(500).json({
+        message:
+          'Failed to send booking session email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
+
+    try {
+      html = `
+  <div style="font-family: Arial, sans-serif; padding: 20px;">
+    <div style="max-width: 500px; margin: auto; background: #0B0447; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="cid:edukaster-logo" alt="Edukaster Logo" style="width: 180px;" />
+      </div>
+
+      <h2 style="color: #f6f6f6; text-align: center;">Session Confirmed</h2>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Your session with <strong>${tutor?.name}</strong> is confirmed.
+      </p>
+
+      <p style="font-size: 15px; color: #f6f6f6;">
+        Meeting link: <a href="${meetingLink}" style="color: #ff7a00;">${meetingLink}</a>
+      </p>
+
+      <p style="margin-top: 25px; font-size: 13px; color: #f6f6f6; text-align: center;">
+        © ${new Date().getFullYear()} Edukaster. All rights reserved.
+      </p>
+    </div>
+  </div>
+`;
+      await sendEmail(student?.email, 'Booking Session', html);
+    } catch (mailErr) {
+      return res.status(500).json({
+        message:
+          'Failed to send booking session email. Please try again later.',
+        error: mailErr.message,
+      });
+    }
 
     /* =======================
        RETURN UPDATED BOOKING
