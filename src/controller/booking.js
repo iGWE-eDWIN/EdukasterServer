@@ -13,8 +13,8 @@ const NotificationService = require('../services/notificationService');
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
 const { sendPushNotification } = require('../services/pushService');
-const fs = require('fs');
-const path = require('path');
+// const fs = require('fs');
+// const path = require('path');
 
 const getTutorAvailability = async (req, res) => {
   try {
