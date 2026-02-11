@@ -1,6 +1,6 @@
 const express = require('express');
 const { auth, authorize } = require('../middleware/auth');
-const uploads = require('../middleware/bookingUpload');
+const upload = require('../middleware');
 const {
   getTutorAvailability,
   bookTutor,
@@ -19,7 +19,7 @@ const fs = require('fs');
 const router = express.Router();
 router.get('/bookings/tutor/:id/availability', auth, getTutorAvailability);
 
-router.post('/bookings', auth, uploads.single('attachment'), bookTutor);
+router.post('/bookings', auth, upload.single('attachment'), bookTutor);
 router.get('/bookings/verify/:reference', verifyBookingPayment);
 
 // Admin only
@@ -88,6 +88,24 @@ router.get(
 //   res.sendFile(filePath);
 // });
 
+// router.get('/bookings/file/:filename', (req, res) => {
+//   const { filename } = req.params;
+
+//   const baseDir =
+//     process.env.NODE_ENV === 'production'
+//       ? '/tmp/bookings'
+//       : path.join(__dirname, '..', 'uploads', 'bookings');
+
+//   const filePath = path.join(baseDir, filename);
+
+//   if (!fs.existsSync(filePath)) {
+//     return res.status(404).json({ message: 'File not found' });
+//   }
+
+//   // 🔥 VERY IMPORTANT
+//   res.sendFile(filePath);
+// });
+
 router.get('/bookings/file/:filename', (req, res) => {
   const { filename } = req.params;
 
@@ -102,7 +120,6 @@ router.get('/bookings/file/:filename', (req, res) => {
     return res.status(404).json({ message: 'File not found' });
   }
 
-  // 🔥 VERY IMPORTANT
   res.sendFile(filePath);
 });
 

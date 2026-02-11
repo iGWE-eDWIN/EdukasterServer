@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const mongoose = require('mongoose');
 const Booking = require('../models/booking');
 const User = require('../models/user');
@@ -237,14 +239,40 @@ const bookTutor = async (req, res) => {
     const studentId = req.user._id;
 
     // ✅ attachment MUST be inside the function
-    const uploadedFile = req.file
-      ? {
-          filename: req.file.filename,
-          mimeType: req.file.mimetype,
-          originalName: req.file.originalname,
-          size: req.file.size,
-        }
-      : null;
+    // const uploadedFile = req.file
+    //   ? {
+    //       filename: req.file.filename,
+    //       mimeType: req.file.mimetype,
+    //       originalName: req.file.originalname,
+    //       size: req.file.size,
+    //     }
+    //   : null;
+
+    let uploadedFileData = null;
+
+    if (req.file) {
+      const uploadDir =
+        process.env.NODE_ENV === 'production'
+          ? '/tmp/bookings'
+          : path.join(__dirname, '..', 'uploads', 'bookings');
+
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const uniqueName = `${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadDir, uniqueName);
+
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      uploadedFileData = {
+        filename: uniqueName,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+      };
+    }
 
     const {
       tutorId,
@@ -314,7 +342,7 @@ const bookTutor = async (req, res) => {
         paymentMethod: 'wallet',
         status: 'pending', // 🔒 admin must approve
         paymentStatus: 'paid',
-        uploadedFile,
+        uploadedFile: uploadedFileData,
       });
 
       await Wallet.create({
@@ -354,7 +382,7 @@ const bookTutor = async (req, res) => {
           sessionType,
           amount,
           redirectUrl,
-          uploadedFile, // ✅ preserve file info
+          uploadedFile: uploadedFileData, // ✅ preserve file info
         },
       });
 

@@ -120,6 +120,7 @@ bookingSchema = new Schema(
       originalName: String,
       mimeType: String,
       size: Number,
+      url: String,
     },
 
     rating: {
