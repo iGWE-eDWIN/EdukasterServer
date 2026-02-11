@@ -1213,6 +1213,10 @@ const getBookingDetails = async (req, res) => {
         .json({ message: 'Booking not found or unauthorized' });
     }
 
+    //     // 🔹 Always allow confirmation if booking is confirmed but not completed
+    const canConfirmCompletion =
+      booking.status === 'confirmed' && !booking.completedAt;
+
     const student = booking.studentId;
     const tutor = booking.tutorId;
 
@@ -1238,6 +1242,9 @@ const getBookingDetails = async (req, res) => {
       adminConfirmed: booking.adminConfirmed,
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
+
+      canConfirmCompletion,
+
       studentFile,
       student: student
         ? {
