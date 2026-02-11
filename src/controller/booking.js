@@ -309,6 +309,7 @@ const bookTutor = async (req, res) => {
         // Create a new group session
         booking = await Booking.create({
           tutorId,
+          studentId,
           courseTitle,
           sessionType: 'group',
           groupStudents: [studentId],
@@ -330,6 +331,12 @@ const bookTutor = async (req, res) => {
 
       // booking.groupStudents.push(studentId);
       // await booking.save();
+
+      if (!booking.groupStudents.includes(studentId)) {
+        booking.groupStudents.push(studentId);
+        booking.studentId = studentId; // ensure schema validation passes
+        await booking.save();
+      }
 
       // Handle payment for group session
       if (paymentMethod === 'wallet') {
