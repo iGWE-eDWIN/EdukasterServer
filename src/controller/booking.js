@@ -422,6 +422,7 @@ const bookTutor = async (req, res) => {
         tutorId,
         courseTitle,
         sessionType: 'group',
+        paymentStatus: { $in: ['pending', 'paid'] }, // 🔥 important
         status: { $in: ['pending', 'confirmed'] },
       });
 
@@ -443,9 +444,13 @@ const bookTutor = async (req, res) => {
       }
 
       // 3️⃣ Check if student already joined THIS tutor's group
-      const alreadyJoined = booking.groupStudents.some(
-        (id) => id.toString() === studentId.toString(),
-      );
+      const alreadyJoined = await Booking.exists({
+        tutorId,
+        courseTitle,
+        sessionType: 'group',
+        groupStudents: studentId,
+        status: { $in: ['pending', 'confirmed'] },
+      });
 
       if (alreadyJoined) {
         return res.status(400).json({
