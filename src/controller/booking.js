@@ -295,9 +295,129 @@ const bookTutor = async (req, res) => {
     }
 
     // 🔹 Handle English Proficiency Group Session
+    // if (courseTitle === 'English Proficiency') {
+    //   const GROUP_AMOUNT = 140000;
+    //   // Check if a group session exists for this tutor
+    //   let booking = await Booking.findOne({
+    //     tutorId,
+    //     courseTitle,
+    //     sessionType: 'group',
+    //     status: { $in: ['pending', 'confirmed'] },
+    //   });
+
+    //   if (!booking) {
+    //     // Create a new group session
+    //     booking = await Booking.create({
+    //       tutorId,
+    //       studentId,
+    //       courseTitle,
+    //       sessionType: 'group',
+    //       groupStudents: [studentId],
+    //       scheduledDate: new Date(scheduledDate),
+    //       duration: 42 * 24 * 60, // 6 weeks in minutes
+    //       amount: 140000,
+    //       paymentStatus: 'pending',
+    //       status: 'pending',
+    //       uploadedFile: uploadedFileData,
+    //     });
+    //   }
+
+    //   // Add student if not already enrolled
+    //   if (booking.groupStudents.includes(studentId)) {
+    //     return res
+    //       .status(400)
+    //       .json({ message: 'You have already joined this session' });
+    //   }
+
+    //   // booking.groupStudents.push(studentId);
+    //   // await booking.save();
+
+    //   if (!booking.groupStudents.includes(studentId)) {
+    //     booking.groupStudents.push(studentId);
+    //     booking.studentId = studentId; // ensure schema validation passes
+    //     await booking.save();
+    //   }
+
+    //   // Handle payment for group session
+    //   if (paymentMethod === 'wallet') {
+    //     const student = await User.findById(studentId);
+    //     if (!student || student.walletBalance < GROUP_AMOUNT) {
+    //       return res
+    //         .status(402)
+    //         .json({ message: 'Insufficient wallet balance for group session' });
+    //     }
+
+    //     const balanceBefore = student.walletBalance;
+    //     student.walletBalance -= GROUP_AMOUNT;
+    //     await student.save();
+
+    //     booking.groupStudents.push(studentId);
+    //     booking.paymentStatus = 'paid';
+    //     // booking.status = 'confirmed';
+    //     await booking.save();
+
+    //     await Wallet.create({
+    //       userId: student._id,
+    //       type: 'debit',
+    //       amount: 140000,
+    //       description: `Booking for English Proficiency with ${tutor.name}`,
+    //       category: 'booking',
+    //       balanceBefore: balanceBefore,
+    //       balanceAfter: student.walletBalance,
+    //     });
+
+    //     return res.status(200).json({
+    //       success: true,
+    //       message: 'Joined English Proficiency session',
+    //       booking,
+    //       walletBalance: student.walletBalance,
+    //     });
+    //   }
+
+    //   // For Paystack, you would implement similar logic as the individual booking, but ensure that the booking is created/updated with sessionType 'group' and handle payments accordingly.
+    //   if (paymentMethod === 'paystack') {
+    //     const reference = paystackService.generateReference();
+    //     const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
+
+    //     const paymentData = await paystackService.initializeTransaction({
+    //       email: req.user.email,
+    //       amount: GROUP_AMOUNT,
+    //       reference,
+    //       callback_url: callbackUrl,
+    //       metadata: {
+    //         studentId,
+    //         tutorId,
+    //         courseTitle,
+    //         scheduledDate,
+    //         duration: 42 * 24 * 60,
+    //         sessionType: 'group',
+    //         amount: GROUP_AMOUNT,
+    //         redirectUrl,
+    //         isEnglishGroup: true, // 🔥 important flag
+    //         uploadedFile: uploadedFileData,
+    //       },
+    //     });
+
+    //     if (!paymentData.success) {
+    //       return res.status(400).json({ message: paymentData.message });
+    //     }
+
+    //     return res.status(200).json({
+    //       success: true,
+    //       message: 'Complete payment to join English Proficiency session',
+    //       authorization_url: paymentData.data.data.authorization_url,
+    //       reference,
+    //     });
+    //   }
+
+    //   return res.status(400).json({ message: 'Invalid payment method' });
+    // }
+
+    // 🔹 Handle English Proficiency Group Session
     if (courseTitle === 'English Proficiency') {
       const GROUP_AMOUNT = 140000;
-      // Check if a group session exists for this tutor
+
+      // 1️⃣ Find existing active group for THIS tutor
       let booking = await Booking.findOne({
         tutorId,
         courseTitle,
@@ -305,76 +425,78 @@ const bookTutor = async (req, res) => {
         status: { $in: ['pending', 'confirmed'] },
       });
 
+      // 2️⃣ If group doesn't exist → create empty group
       if (!booking) {
-        // Create a new group session
         booking = await Booking.create({
           tutorId,
-          studentId,
+          studentId, // required by schema
           courseTitle,
           sessionType: 'group',
-          groupStudents: [studentId],
+          groupStudents: [],
           scheduledDate: new Date(scheduledDate),
-          duration: 42 * 24 * 60, // 6 weeks in minutes
-          amount: 140000,
+          duration: 42 * 24 * 60, // 6 weeks
+          amount: GROUP_AMOUNT,
           paymentStatus: 'pending',
           status: 'pending',
           uploadedFile: uploadedFileData,
         });
       }
 
-      // Add student if not already enrolled
-      if (booking.groupStudents.includes(studentId)) {
-        return res
-          .status(400)
-          .json({ message: 'You have already joined this session' });
+      // 3️⃣ Check if student already joined THIS tutor's group
+      const alreadyJoined = booking.groupStudents.some(
+        (id) => id.toString() === studentId.toString(),
+      );
+
+      if (alreadyJoined) {
+        return res.status(400).json({
+          message: 'You have already joined this session',
+        });
       }
 
-      // booking.groupStudents.push(studentId);
-      // await booking.save();
-
-      if (!booking.groupStudents.includes(studentId)) {
-        booking.groupStudents.push(studentId);
-        booking.studentId = studentId; // ensure schema validation passes
-        await booking.save();
-      }
-
-      // Handle payment for group session
+      // ================= WALLET PAYMENT =================
       if (paymentMethod === 'wallet') {
         const student = await User.findById(studentId);
+
         if (!student || student.walletBalance < GROUP_AMOUNT) {
-          return res
-            .status(402)
-            .json({ message: 'Insufficient wallet balance for group session' });
+          return res.status(402).json({
+            message: 'Insufficient wallet balance for group session',
+          });
         }
 
         const balanceBefore = student.walletBalance;
+
+        // Deduct wallet first
         student.walletBalance -= GROUP_AMOUNT;
         await student.save();
 
-        booking.groupStudents.push(studentId);
+        // Add student safely (no duplicates)
+        await Booking.updateOne(
+          { _id: booking._id },
+          { $addToSet: { groupStudents: studentId } },
+        );
+
         booking.paymentStatus = 'paid';
-        // booking.status = 'confirmed';
         await booking.save();
 
         await Wallet.create({
           userId: student._id,
           type: 'debit',
-          amount: 140000,
-          description: `Booking for English Proficiency with ${tutor.name}`,
+          amount: GROUP_AMOUNT,
+          description: `English Proficiency with ${tutor.name}`,
           category: 'booking',
-          balanceBefore: balanceBefore,
+          balanceBefore,
           balanceAfter: student.walletBalance,
         });
 
         return res.status(200).json({
           success: true,
-          message: 'Joined English Proficiency session',
+          message: 'Successfully joined English Proficiency session',
           booking,
           walletBalance: student.walletBalance,
         });
       }
 
-      // For Paystack, you would implement similar logic as the individual booking, but ensure that the booking is created/updated with sessionType 'group' and handle payments accordingly.
+      // ================= PAYSTACK PAYMENT =================
       if (paymentMethod === 'paystack') {
         const reference = paystackService.generateReference();
         const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
@@ -393,7 +515,7 @@ const bookTutor = async (req, res) => {
             sessionType: 'group',
             amount: GROUP_AMOUNT,
             redirectUrl,
-            isEnglishGroup: true, // 🔥 important flag
+            isEnglishGroup: true,
             uploadedFile: uploadedFileData,
           },
         });
