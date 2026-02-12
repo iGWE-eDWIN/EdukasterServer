@@ -1661,17 +1661,41 @@ const getBookingDetails = async (req, res) => {
     }
 
     // 🔹 Group Booking Response
+    // if (isGroupSession) {
+    //   responseData.groupStudents = booking.groupStudents.map((student) => ({
+    //     _id: student._id,
+    //     name: student.name,
+    //     email: student.email,
+    //     about: student.about,
+    //     goal: student.goal,
+    //     avatar: student.avatar
+    //       ? `${req.protocol}://${req.get('host')}/users/avatar/${student._id}`
+    //       : null,
+    //     // added upload file info for each group student
+    //     uploadedFile: item.uploadedFile
+    //       ? {
+    //           originalName: item.uploadedFile.originalName,
+    //           mimeType: item.uploadedFile.mimeType,
+    //           size: item.uploadedFile.size,
+    //           url: `${req.protocol}://${req.get('host')}/bookings/file/${item.uploadedFile.filename}`,
+    //         }
+    //       : null,
+    //   }));
+
+    //   responseData.totalStudents = booking.groupStudents.length;
+    // }
+
     if (isGroupSession) {
-      responseData.groupStudents = booking.groupStudents.map((student) => ({
-        _id: student._id,
-        name: student.name,
-        email: student.email,
-        about: student.about,
-        goal: student.goal,
-        avatar: student.avatar
-          ? `${req.protocol}://${req.get('host')}/users/avatar/${student._id}`
+      responseData.groupStudents = booking.groupStudents.map((item) => ({
+        _id: item.student?._id,
+        name: item.student?.name,
+        email: item.student?.email,
+        about: item.student?.about,
+        goal: item.student?.goal,
+        avatar: item.student?.avatar
+          ? `${req.protocol}://${req.get('host')}/users/avatar/${item.student._id}`
           : null,
-        // added upload file info for each group student
+
         uploadedFile: item.uploadedFile
           ? {
               originalName: item.uploadedFile.originalName,
