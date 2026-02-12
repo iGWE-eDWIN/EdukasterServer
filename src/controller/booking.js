@@ -761,7 +761,55 @@ const verifyBookingPayment = async (req, res) => {
     } = meta;
 
     // ================= ENGLISH PROFICIENCY GROUP =================
+    // if (isEnglishGroup) {
+    //   let booking = await Booking.findOne({
+    //     tutorId,
+    //     courseTitle,
+    //     sessionType: 'group',
+    //     status: { $in: ['pending', 'confirmed'] },
+    //   });
+
+    //   if (!booking) {
+    //     booking = await Booking.create({
+    //       tutorId,
+    //       courseTitle,
+    //       sessionType: 'group',
+    //       groupStudents: [],
+    //       scheduledDate: new Date(scheduledDate),
+    //       duration,
+    //       amount,
+    //       paymentMethod: 'paystack',
+    //       paymentStatus: 'paid',
+    //       status: 'pending',
+    //       paystackReference: reference,
+    //     });
+    //   }
+
+    //   if (!booking.groupStudents.includes(studentId)) {
+    //     booking.groupStudents.push(studentId);
+    //   }
+
+    //   booking.paymentStatus = 'paid';
+    //   await booking.save();
+
+    //   await Wallet.create({
+    //     userId: studentId,
+    //     type: 'debit',
+    //     amount,
+    //     description: `English Proficiency group payment`,
+    //     category: 'booking',
+    //     balanceBefore: 0,
+    //     balanceAfter: 0,
+    //     paymentMethod: 'paystack',
+    //   });
+
+    //   const redirect = `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`;
+    //   return res.redirect(redirect);
+    // }
+
     if (isEnglishGroup) {
+      const GROUP_AMOUNT = amount;
+
       let booking = await Booking.findOne({
         tutorId,
         courseTitle,
@@ -772,12 +820,13 @@ const verifyBookingPayment = async (req, res) => {
       if (!booking) {
         booking = await Booking.create({
           tutorId,
+          studentId,
           courseTitle,
           sessionType: 'group',
           groupStudents: [],
           scheduledDate: new Date(scheduledDate),
           duration,
-          amount,
+          amount: GROUP_AMOUNT,
           paymentMethod: 'paystack',
           paymentStatus: 'paid',
           status: 'pending',
@@ -785,9 +834,11 @@ const verifyBookingPayment = async (req, res) => {
         });
       }
 
-      if (!booking.groupStudents.includes(studentId)) {
-        booking.groupStudents.push(studentId);
-      }
+      // Prevent duplicates
+      await Booking.updateOne(
+        { _id: booking._id },
+        { $addToSet: { groupStudents: studentId } },
+      );
 
       booking.paymentStatus = 'paid';
       await booking.save();
@@ -795,7 +846,7 @@ const verifyBookingPayment = async (req, res) => {
       await Wallet.create({
         userId: studentId,
         type: 'debit',
-        amount,
+        amount: GROUP_AMOUNT,
         description: `English Proficiency group payment`,
         category: 'booking',
         balanceBefore: 0,
@@ -803,7 +854,7 @@ const verifyBookingPayment = async (req, res) => {
         paymentMethod: 'paystack',
       });
 
-      const redirect = `${redirectUrl}?status=success&amount=${amount}&reference=${reference}`;
+      const redirect = `${redirectUrl}?status=success&amount=${GROUP_AMOUNT}&reference=${reference}`;
       return res.redirect(redirect);
     }
 

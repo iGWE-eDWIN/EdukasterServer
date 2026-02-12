@@ -70,7 +70,10 @@ bookingSchema = new Schema(
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      // required: true,
+      required: function () {
+        return this.sessionType === '1on1';
+      },
     },
     tutorId: {
       type: mongoose.Schema.Types.ObjectId,
