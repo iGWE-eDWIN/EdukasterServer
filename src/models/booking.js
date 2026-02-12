@@ -88,8 +88,13 @@ bookingSchema = new Schema(
     },
     groupStudents: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        student: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        uploadedFile: {
+          filename: String,
+          originalName: String,
+          mimeType: String,
+          size: Number,
+        },
       },
     ],
     fixedPrice: { type: Number }, // 140000 for English Proficiency

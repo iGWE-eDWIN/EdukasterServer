@@ -475,9 +475,21 @@ const bookTutor = async (req, res) => {
         await student.save();
 
         // Add student safely (no duplicates)
+        // await Booking.updateOne(
+        //   { _id: booking._id },
+        //   { $addToSet: { groupStudents: studentId } },
+        // );
+
         await Booking.updateOne(
           { _id: booking._id },
-          { $addToSet: { groupStudents: studentId } },
+          {
+            $push: {
+              groupStudents: {
+                student: studentId,
+                uploadedFile: uploadedFileData,
+              },
+            },
+          },
         );
 
         booking.paymentStatus = 'paid';
@@ -840,10 +852,17 @@ const verifyBookingPayment = async (req, res) => {
       }
 
       // Prevent duplicates
+      // await Booking.updateOne(
+      //   { _id: booking._id },
+      //   { $addToSet: { groupStudents: studentId } },
+      // );
+
       await Booking.updateOne(
         { _id: booking._id },
-        { $addToSet: { groupStudents: studentId } },
+        { $push: { groupStudents: { student: studentId, uploadedFile } } },
       );
+
+      const tutor = await User.findById(tutorId);
 
       booking.paymentStatus = 'paid';
       await booking.save();
@@ -852,7 +871,7 @@ const verifyBookingPayment = async (req, res) => {
         userId: studentId,
         type: 'debit',
         amount: GROUP_AMOUNT,
-        description: `English Proficiency group payment`,
+        description: `English Proficiency with ${tutor?.name}`,
         category: 'booking',
         balanceBefore: 0,
         balanceAfter: 0,
@@ -1554,7 +1573,10 @@ const getBookingDetails = async (req, res) => {
     })
       .populate('studentId', 'name email avatar about goal')
       .populate('tutorId', 'name email avatar fees totalEarnings')
-      .populate('groupStudents', 'name email avatar about goal');
+      .populate({
+        path: 'groupStudents.student',
+        select: 'name email avatar about goal',
+      });
 
     if (!booking) {
       return res
@@ -1648,6 +1670,15 @@ const getBookingDetails = async (req, res) => {
         goal: student.goal,
         avatar: student.avatar
           ? `${req.protocol}://${req.get('host')}/users/avatar/${student._id}`
+          : null,
+        // added upload file info for each group student
+        uploadedFile: item.uploadedFile
+          ? {
+              originalName: item.uploadedFile.originalName,
+              mimeType: item.uploadedFile.mimeType,
+              size: item.uploadedFile.size,
+              url: `${req.protocol}://${req.get('host')}/bookings/file/${item.uploadedFile.filename}`,
+            }
           : null,
       }));
 
