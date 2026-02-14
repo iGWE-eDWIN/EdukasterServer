@@ -298,7 +298,7 @@ const verifyEmail = async (req, res) => {
         await sendEmail(
           user.email,
           'Tutor Registration Pending Approval',
-          html
+          html,
         );
       } catch (mailErr) {
         return res.status(500).json({
@@ -532,6 +532,40 @@ const loginUser = async (req, res) => {
       });
     }
 
+    // Daily login strak tracking
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let isNewLoginDay = false;
+
+    if (!user.lastLoginDate) {
+      // first ever login
+      user.loginStreak = 1;
+      user.lastLoginDate = today;
+      isNewLoginDay = true;
+    } else {
+      const lastLogin = new Date(user.lastLoginDate);
+      lastLogin.setHours(0, 0, 0, 0);
+
+      const isSameDay = today.getTime() === lastLogin.getTime();
+      if (!isSameDay) {
+        user.loginStreak += 1; // No reset even if skipped days
+        user.lastLoginDate = today;
+        isNewLoginDay = true;
+      }
+    }
+
+    // if (today.getTime() !== lastLogin) {
+    //   // Logged in on a new day → increment
+    //   user.loginStreak += 1;
+    //   isNewLoginDay = true;
+    // }
+
+    // if (isNewLoginDay) {
+    //   user.lastLoginDate = today;
+    // }
+
+    await user.save({ validateBeforeSave: false });
+
     // ✅ If 2FA not enabled, issue tokens immediately
     // ✅ Generate tokens using model method
     const { accessToken, refreshToken } = await user.generateAuthToken();
@@ -541,6 +575,8 @@ const loginUser = async (req, res) => {
       user: formatUser(user),
       accessToken,
       refreshToken,
+      loginStreak: user.loginStreak,
+      isNewLoginDay,
     });
   } catch (error) {
     res.status(500).json({ message: error.message || 'Login failed' });
@@ -857,7 +893,7 @@ const updateProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
-      { new: true }
+      { new: true },
     );
     // console.log(user.fees);
     // console.log(user);
@@ -911,7 +947,7 @@ const savePushToken = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { pushToken },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {

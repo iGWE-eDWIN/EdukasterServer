@@ -12,6 +12,7 @@ const {
   changeUsersPassword,
   changeUserRole,
   setTutorAdminFee,
+  getDailyLoginStreak,
 } = require('../controller/users');
 
 const router = new express.Router();
@@ -21,7 +22,7 @@ router.get(
   '/users/pending-tutors',
   auth,
   authorize('admin'),
-  getPendingTutorApprovals
+  getPendingTutorApprovals,
 );
 router.patch('/users/:id/approve', auth, authorize('admin'), approveTutor);
 router.patch('/users/:id/reject', auth, authorize('admin'), rejectTutor);
@@ -33,10 +34,18 @@ router.patch(
   '/users/:id/password',
   auth,
   authorize('admin'),
-  changeUsersPassword
+  changeUsersPassword,
 );
 router.patch('/users/:id/role', auth, authorize('admin'), changeUserRole);
 
 router.put('/users/:tutorId/fee', auth, authorize('admin'), setTutorAdminFee);
+
+// Admin track daily login streak
+router.get(
+  '/users/daily-login-streak',
+  auth,
+  authorize('admin'),
+  getDailyLoginStreak,
+);
 
 module.exports = router;

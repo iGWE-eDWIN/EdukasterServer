@@ -30,7 +30,7 @@ userSchema = new Schema(
 
         if (!strongPasswordRegex.test(value)) {
           throw new Error(
-            'Password must contain uppercase, lowercase, number, special symbol and be at least 8 characters'
+            'Password must contain uppercase, lowercase, number, special symbol and be at least 8 characters',
           );
         }
 
@@ -241,6 +241,16 @@ userSchema = new Schema(
       type: Number,
       default: 0,
     },
+    // login streak
+    loginStreak: {
+      type: Number,
+      default: 0,
+    },
+
+    lastLoginDate: {
+      type: Date,
+      default: null,
+    },
     lastSolutionRequestMonth: String,
     tokens: [
       {
@@ -253,7 +263,7 @@ userSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Generating jason web token (jwt) for authentication
@@ -267,14 +277,14 @@ userSchema.methods.generateAuthToken = async function () {
   // Access token (short life)
   const accessToken = jwt.sign(
     { _id: user._id.toString() },
-    process.env.JWT_Secret
+    process.env.JWT_Secret,
   );
 
   // Refresh token (long life)
   const refreshToken = jwt.sign(
     { _id: user._id.toString() },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '7d' },
   );
 
   // Save refresh token in DB for this user
@@ -319,7 +329,7 @@ userSchema.statics.findByCredentials = async (email, password) => {
 
     const attemptsLeft = 6 - user.failedLoginAttempts;
     throw new Error(
-      `Invalid email or password. ${attemptsLeft} attempt(s) left.`
+      `Invalid email or password. ${attemptsLeft} attempt(s) left.`,
     );
   }
 

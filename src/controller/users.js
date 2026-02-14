@@ -136,12 +136,12 @@ const approveTutor = async (req, res) => {
         await sendEmail(
           tutor?.email,
           'Your tutor application has been approved',
-          html
+          html,
         );
       } catch (emailError) {
         console.error(
           `Failed to send approval email to ${tutor.email}:`,
-          emailError
+          emailError,
         );
         res.status(500).json({
           message:
@@ -190,7 +190,7 @@ const rejectTutor = async (req, res) => {
     await sendEmail(
       tutor.email,
       'Your tutor application has been rejected',
-      `Dear ${tutor.name}, we regret to inform you that your application has been rejected. Reason: ${tutor.rejectionReason}`
+      `Dear ${tutor.name}, we regret to inform you that your application has been rejected. Reason: ${tutor.rejectionReason}`,
     );
 
     res.status(200).json({
@@ -442,6 +442,31 @@ const setTutorAdminFee = async (req, res) => {
   }
 };
 
+// Admin get users daily login streak (for analytics)
+const getDailyLoginStreak = async (req, res) => {
+  try {
+    const users = await User.find(
+      {},
+      'name email role loginStreak lastLoginDate',
+    ).lean();
+
+    res.json({
+      message: 'User login streaks retrieved successfully',
+      count: users.length,
+      users: users.map((user) => ({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        loginStreak: user.loginStreak,
+        lastLoginDate: user.lastLoginDate,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getPendingTutorApprovals,
@@ -454,4 +479,5 @@ module.exports = {
   changeUsersPassword,
   changeUserRole,
   setTutorAdminFee,
+  getDailyLoginStreak,
 };
