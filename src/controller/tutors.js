@@ -185,13 +185,42 @@ const getAllTutors = async (req, res) => {
       ];
     }
 
-    if (
-      category &&
-      category.toLowerCase() !== 'all' &&
-      ['academic', 'english', 'consultant'].includes(category.toLowerCase())
-    ) {
-      filters.category = category.toLowerCase();
+    // if (
+    //   category &&
+    //   category.toLowerCase() !== 'all' &&
+    //   ['academic', 'english', 'consultant'].includes(category.toLowerCase())
+    // ) {
+    //   filters.category = category.toLowerCase();
+    // }
+
+    // 🎯 Category filtering
+    if (category) {
+      const cat = category.toLowerCase();
+
+      if (cat === 'academic') {
+        filters.category = 'academic';
+      }
+
+      if (cat === 'consultant') {
+        filters.$and = [
+          ...(filters.$and || []),
+          { courseTitle: { $regex: 'consultant', $options: 'i' } },
+        ];
+      }
+
+      if (cat === 'english') {
+        filters.$and = [
+          ...(filters.$and || []),
+          {
+            courseTitle: {
+              $regex: 'english proficiency|ielts|toefl|pte|gre|sat',
+              $options: 'i',
+            },
+          },
+        ];
+      }
     }
+
 
     const tutors = await User.find(filters)
       .select('name courseTitle experience rating category avatar fees')

@@ -363,8 +363,17 @@ userSchema.pre('save', async function (next) {
 });
 
 // Auto-detect tutor category
+
+function normalize(text = '') {
+  return text
+    .toLowerCase()
+    .replace(/[-_]/g, ' ')   // replace - and _
+    .replace(/\s+/g, ' ')    // remove extra spaces
+    .trim();
+}
 function detectCategory(courseTitle = '') {
-  const title = courseTitle.trim().toLowerCase();
+  // const title = courseTitle.trim().toLowerCase();
+  const title = normalize(courseTitle);
   const consultants = [
     'consultant',
     'business consultant',
