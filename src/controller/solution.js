@@ -310,9 +310,12 @@ const getSolutionRequestById = async (req, res) => {
     //   url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
     // }));
     // ✅ Format attachments using the solution.attachments field
+    const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
     reqObj.attachments = reqObj.attachments.map((file) => ({
       fileName: file.fileName,
-      url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`, // use solution field
+      url: `${BASE_URL}/solutions/file/${file.fileId}`, // use solution field
     }));
 
     // Format tutorResponses with avatar
