@@ -434,32 +434,58 @@ const getSolutionRequestById = async (req, res) => {
     }));
 
     // ✅ ALL RESPONSES (NO FILTER ❗)
+    // reqObj.tutorResponses = (reqObj.tutorResponses || []).map((resp) => {
+    //   const tutor = resp.tutorId;
+
+    //   const tutorAvatar = tutor?.avatar?.data
+    //     ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+    //         'base64'
+    //       )}`
+    //     : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    //         tutor?.name || 'Tutor'
+    //       )}&background=random`;
+
+    //   const attachments = (resp.attachments || []).map((file) => ({
+    //     fileName: file.fileName,
+    //     url: `${BASE_URL}/solutions/file/${file.fileId}`,
+    //   }));
+
+    //   return {
+    //     _id: resp._id,
+    //     tutorId: tutor?._id,
+    //     tutorName: tutor?.name || 'Tutor',
+    //     tutorAvatar,
+    //     response: resp.response,
+    //     attachments,
+    //     createdAt: resp.createdAt,
+    //   };
+    // });
+
     reqObj.tutorResponses = (reqObj.tutorResponses || []).map((resp) => {
-      const tutor = resp.tutorId;
+  const tutor = resp.tutorId;
 
-      const tutorAvatar = tutor?.avatar?.data
-        ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-            'base64'
-          )}`
-        : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            tutor?.name || 'Tutor'
-          )}&background=random`;
+  const tutorAvatar = tutor?.avatar?.data
+    ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString('base64')}`
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        tutor?.name || 'Tutor'
+      )}&background=random`;
 
-      const attachments = (resp.attachments || []).map((file) => ({
-        fileName: file.fileName,
-        url: `${BASE_URL}/solutions/file/${file.fileId}`,
-      }));
+  return {
+    _id: resp._id,
+    tutorId: tutor?._id,
+    tutorName: tutor?.name || 'Tutor',
+    tutorAvatar,
+    response: resp.response,
+    createdAt: resp.createdAt,
 
-      return {
-        _id: resp._id,
-        tutorId: tutor?._id,
-        tutorName: tutor?.name || 'Tutor',
-        tutorAvatar,
-        response: resp.response,
-        attachments,
-        createdAt: resp.createdAt,
-      };
-    });
+    // 🔥 VERY IMPORTANT
+    attachments: (resp.attachments || []).map((file) => ({
+      fileName: file.fileName,
+      url: `${BASE_URL}/solutions/file/${file.fileId}`,
+    })),
+  };
+});
+
 
     res.status(200).json({
       success: true,
