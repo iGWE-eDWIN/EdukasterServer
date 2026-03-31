@@ -154,11 +154,17 @@ const createSolutionRequest = async (req, res) => {
     ).populate('studentId', 'name email institution course');
 
     // ✅ Add file URLs for your UI
+     const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
     const requestWithUrls = {
       ...populatedRequest.toObject(),
       attachments: uploadedFiles.map((file) => ({
         ...file,
-        url: `${req.protocol}://${req.get('host')}/solutions/file/${
+        // url: `${req.protocol}://${req.get('host')}/solutions/file/${
+        //   file.fileId
+        // }`,
+         url: `${BASE_URL}/solutions/file/${
           file.fileId
         }`,
       })),
@@ -289,11 +295,7 @@ const getSolutionRequestById = async (req, res) => {
         .json({ success: false, message: 'Request not found' });
     }
 
-    if (!request) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Request not found' });
-    }
+   
 
     // // ✅ Increment views
     // request.views = (request.views || 0) + 1;
@@ -314,26 +316,78 @@ const getSolutionRequestById = async (req, res) => {
     }));
 
     // Format tutorResponses with avatar
-    reqObj.tutorResponses = reqObj.tutorResponses.map((resp) => {
-      const tutor = resp.tutorId;
-      const tutorAvatar = tutor?.avatar?.data
-        ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-            'base64',
-          )}`
-        : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            tutor?.name || 'Tutor',
-          )}&background=random`;
+    // reqObj.tutorResponses = reqObj.tutorResponses.map((resp) => {
+    //   const tutor = resp.tutorId;
+    //   const tutorAvatar = tutor?.avatar?.data
+    //     ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+    //         'base64',
+    //       )}`
+    //     : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    //         tutor?.name || 'Tutor',
+    //       )}&background=random`;
 
-      return {
-        _id: resp._id,
-        tutorId: tutor?._id,
-        tutorName: tutor?.name || 'Tutor',
-        tutorAvatar,
-        response: resp.response,
-        createdAt: resp.createdAt,
-      };
-    });
+    //        // ✅ RESPONSE ATTACHMENTS (🔥 THIS WAS MISSING)
+    //   const attachments = (resp.attachments || []).map((file) => ({
+    //     fileName: file.fileName,
+    //     url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
+    //   }));
+        
+
+    //   return {
+    //     _id: resp._id,
+    //     tutorId: tutor?._id,
+    //     tutorName: tutor?.name || 'Tutor',
+    //     tutorAvatar,
+    //     attachments, // ✅ Include response attachments
+    //     response: resp.response,
+    //     createdAt: resp.createdAt,
+    //   };
+    // });
     // console.log(reqObj);
+
+        // ✅ FILTER + FORMAT RESPONSES
+    // =========================
+    const tutorId = req.user?._id?.toString(); // 🔥 safe access
+
+    reqObj.tutorResponses = (reqObj.tutorResponses || [])
+      // ✅ FILTER (only this tutor's responses)
+      .filter((resp) =>
+        tutorId ? resp.tutorId?._id?.toString() === tutorId : true
+      )
+
+      // ✅ MAP
+      .map((resp) => {
+        const tutor = resp.tutorId;
+
+        const tutorAvatar = tutor?.avatar?.data
+          ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+              'base64'
+            )}`
+          : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              tutor?.name || 'Tutor'
+            )}&background=random`;
+
+        // ✅ RESPONSE ATTACHMENTS
+        const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
+        const attachments = (resp.attachments || []).map((file) => ({
+          fileName: file.fileName,
+          url: `${BASE_URL}/solutions/file/${file.fileId}`,
+        }));
+
+        return {
+          _id: resp._id,
+          tutorId: tutor?._id,
+          tutorName: tutor?.name || 'Tutor',
+          tutorAvatar,
+
+          response: resp.response,
+          attachments, // ✅ images included
+          createdAt: resp.createdAt,
+        };
+      });
+
 
     res.status(200).json({ success: true, request: reqObj });
   } catch (error) {
@@ -348,21 +402,56 @@ const addTutorResponse = async (req, res) => {
     const { solutionRequestId, response } = req.body;
     const tutorId = req.user._id;
 
+    const files = req.files || [];
+
     if (!mongoose.Types.ObjectId.isValid(solutionRequestId)) {
       return res.status(400).json({ message: 'Invalid solution request ID' });
     }
 
-    const solution = await Solution.findById(solutionRequestId).populate(
-      'tutorResponses.tutorId',
-      'name email avatar',
-    );
+    // const solution = await Solution.findById(solutionRequestId).populate(
+    //   'tutorResponses.tutorId',
+    //   'name email avatar',
+    // );
+    // if (!solution) {
+    //   return res.status(404).json({ message: 'Solution request not found' });
+    // }
+
+       const solution = await Solution.findById(solutionRequestId);
     if (!solution) {
       return res.status(404).json({ message: 'Solution request not found' });
     }
 
+     const gridfsBucket = getGridFSBucket();
+
+      // ✅ Upload files
+    const uploadedFiles = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve, reject) => {
+          const uploadStream = gridfsBucket.openUploadStream(file.originalname, {
+            metadata: {
+              uploadedBy: tutorId,
+              contentType: file.mimetype,
+            },
+          });
+
+          uploadStream.end(file.buffer);
+
+          uploadStream.on('finish', () => {
+            resolve({
+              fileId: uploadStream.id,
+              fileName: file.originalname,
+            });
+          });
+
+          uploadStream.on('error', reject);
+        });
+      })
+    );
+
     const newResponse = {
       tutorId,
       response,
+       attachments: uploadedFiles,
       createdAt: new Date(),
     };
 
@@ -371,30 +460,35 @@ const addTutorResponse = async (req, res) => {
     await solution.save();
 
     // Get the latest tutor response with populated tutor info
-    const latestResponse =
-      solution.tutorResponses[solution.tutorResponses.length - 1];
-    const tutor = await User.findById(latestResponse.tutorId);
+    // const latestResponse =
+    //   solution.tutorResponses[solution.tutorResponses.length - 1];
+    // const tutor = await User.findById(latestResponse.tutorId);
 
-    const tutorAvatar =
-      tutor?.avatar && tutor.avatar.data
-        ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-            'base64',
-          )}`
-        : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            tutor?.name || 'Tutor',
-          )}&background=random`;
+    // const tutorAvatar =
+    //   tutor?.avatar && tutor.avatar.data
+    //     ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+    //         'base64',
+    //       )}`
+    //     : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    //         tutor?.name || 'Tutor',
+    //       )}&background=random`;
 
-    res.status(200).json({
+    // res.status(200).json({
+    //   success: true,
+    //   message: 'Response added',
+    //   tutorResponse: {
+    //     _id: latestResponse._id,
+    //     tutorId: latestResponse.tutorId,
+    //     tutorName: tutor?.name || 'Tutor',
+    //     tutorAvatar,
+    //     response: latestResponse.response,
+    //     createdAt: latestResponse.createdAt,
+    //   },
+    // });
+
+     res.status(200).json({
       success: true,
       message: 'Response added',
-      tutorResponse: {
-        _id: latestResponse._id,
-        tutorId: latestResponse.tutorId,
-        tutorName: tutor?.name || 'Tutor',
-        tutorAvatar,
-        response: latestResponse.response,
-        createdAt: latestResponse.createdAt,
-      },
     });
   } catch (error) {
     console.error('Error adding tutor response:', error);
@@ -418,9 +512,12 @@ const getStudentSolutionRequests = async (req, res) => {
       const reqObj = request.toObject();
 
       // Add file URLs
+      const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
       reqObj.attachments = reqObj.attachments.map((file) => ({
         fileName: file.fileName,
-        url: `${req.protocol}://${req.get('host')}/solutions/file/${
+        url: `${BASE_URL}/solutions/file/${
           file.fileId
         }`,
       }));
@@ -491,9 +588,12 @@ const getStudentSolutionById = async (req, res) => {
     const reqObj = request.toObject();
 
     // Add file URLs
+    const BASE_URL =
+      process.env.BACKEND_URL ||
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
     reqObj.attachments = reqObj.attachments.map((file) => ({
       fileName: file.fileName,
-      url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
+      url: `${BASE_URL}/solutions/file/${file.fileId}`,
     }));
 
     // Tutor responses with avatar

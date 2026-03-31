@@ -36,7 +36,7 @@ const upload = multer({
 // Upload past question (Student, Tutor, Admin)
 const uploadQuestion = async (req, res) => {
   try {
-    const { institution, courseTitle, courseCode, courseDetails } = req.body;
+    const { institution, courseTitle, courseCode,  examYear, semester } = req.body;
     // console.log(req.body);
 
     if (!req.files || req.files.length === 0) {
@@ -100,7 +100,9 @@ const uploadQuestion = async (req, res) => {
       institution,
       courseTitle,
       courseCode,
-      courseDetails,
+      // courseDetails,
+      examYear,
+      semester,
       images: uploadedFiles,
       uploadedBy: req.user._id,
       uploaderRole: req.user.role,
@@ -130,6 +132,8 @@ const getAllQuestions = async (req, res) => {
       institution,
       courseTitle,
       courseCode,
+       examYear,
+      semester,
       approved = 'true',
     } = req.query;
 
@@ -165,6 +169,8 @@ const getAllQuestions = async (req, res) => {
         { institution: { $regex: search, $options: 'i' } },
         { courseTitle: { $regex: search, $options: 'i' } },
         { courseCode: { $regex: search, $options: 'i' } },
+        { examYear: { $regex: search, $options: 'i' } },
+        { semester: { $regex: search, $options: 'i' } },
         { tags: { $in: [new RegExp(search, 'i')] } },
       ];
     }
@@ -172,6 +178,8 @@ const getAllQuestions = async (req, res) => {
     if (institution && !search) query.institution = institution;
     if (courseTitle && !search) query.courseTitle = courseTitle;
     if (courseCode && !search) query.courseCode = courseCode;
+    if (examYear && !search) query.examYear = examYear;
+    if (semester && !search) query.semester = semester;
 
     const questions = await Question.find(query)
       .populate('uploadedBy', 'name email')
@@ -254,7 +262,7 @@ const getQuestionById = async (req, res) => {
     // Add file URLs
     const BASE_URL =
       process.env.BACKEND_URL ||
-      'https://edukaster-server-8b325837bf8a.herokuapp.com';
+      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
     const questionObj = question.toObject();
     questionObj.images = questionObj.images.map((img) => ({
       ...img,

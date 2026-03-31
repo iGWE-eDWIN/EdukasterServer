@@ -22,6 +22,8 @@ const questionSchema = new Schema(
     courseDetails: {
       type: String, // e.g. description, outline, lecturer name
     },
+examYear: { type: String,  },
+semester: { type: String,  },
 
     // File storage (GridFS or external service)
     fileId: {

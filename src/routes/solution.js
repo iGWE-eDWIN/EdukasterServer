@@ -107,7 +107,7 @@ router.get(
 router.get('/solution/:id', auth, authorize('tutor'), getSolutionRequestById);
 
 // Tutor adds a response
-router.post('/solution/response', auth, authorize('tutor'), addTutorResponse);
+router.post('/solution/response', auth, authorize('tutor'),  upload.array('files', 5), addTutorResponse);
 
 // Get all solution requests for the logged-in student
 router.get('/solution/student/requests', auth, getStudentSolutionRequests);
