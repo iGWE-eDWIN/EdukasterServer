@@ -274,128 +274,203 @@ const getAllSolutionRequest = async (req, res) => {
 };
 
 // ✅ Get a single solution request by ID
+// const getSolutionRequestById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     // ✅ Validate ObjectId
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Invalid request ID' });
+//     }
+
+//     // ✅ Find the specific request
+//     const request = await Solution.findById(id)
+//       .populate('studentId', 'name email institution course ')
+//       .populate('tutorResponses.tutorId', 'name email avatar');
+//     if (!request) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: 'Request not found' });
+//     }
+
+   
+
+//     // // ✅ Increment views
+//     // request.views = (request.views || 0) + 1;
+//     // await request.save();
+
+//     // ✅ Convert to plain object
+//     const reqObj = request.toObject();
+
+//     // ✅ Add file URLs
+//     // reqObj.attachments = reqObj.attachments.map((file) => ({
+//     //   ...file,
+//     //   url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
+//     // }));
+//     // ✅ Format attachments using the solution.attachments field
+//     const BASE_URL =
+//       process.env.BACKEND_URL ||
+//       'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
+//     reqObj.attachments = reqObj.attachments.map((file) => ({
+//       fileName: file.fileName,
+//       url: `${BASE_URL}/solutions/file/${file.fileId}`, // use solution field
+//     }));
+
+//     // Format tutorResponses with avatar
+//     // reqObj.tutorResponses = reqObj.tutorResponses.map((resp) => {
+//     //   const tutor = resp.tutorId;
+//     //   const tutorAvatar = tutor?.avatar?.data
+//     //     ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+//     //         'base64',
+//     //       )}`
+//     //     : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+//     //         tutor?.name || 'Tutor',
+//     //       )}&background=random`;
+
+//     //        // ✅ RESPONSE ATTACHMENTS (🔥 THIS WAS MISSING)
+//     //   const attachments = (resp.attachments || []).map((file) => ({
+//     //     fileName: file.fileName,
+//     //     url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
+//     //   }));
+        
+
+//     //   return {
+//     //     _id: resp._id,
+//     //     tutorId: tutor?._id,
+//     //     tutorName: tutor?.name || 'Tutor',
+//     //     tutorAvatar,
+//     //     attachments, // ✅ Include response attachments
+//     //     response: resp.response,
+//     //     createdAt: resp.createdAt,
+//     //   };
+//     // });
+//     // console.log(reqObj);
+
+//         // ✅ FILTER + FORMAT RESPONSES
+//     // =========================
+//     const tutorId = req.user?._id?.toString(); // 🔥 safe access
+
+//     reqObj.tutorResponses = (reqObj.tutorResponses || [])
+//       // ✅ FILTER (only this tutor's responses)
+//       .filter((resp) =>
+//         tutorId ? resp.tutorId?._id?.toString() === tutorId : true
+//       )
+
+//       // ✅ MAP
+//       .map((resp) => {
+//         const tutor = resp.tutorId;
+
+//         const tutorAvatar = tutor?.avatar?.data
+//           ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+//               'base64'
+//             )}`
+//           : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+//               tutor?.name || 'Tutor'
+//             )}&background=random`;
+
+//         // ✅ RESPONSE ATTACHMENTS
+//         const BASE_URL =
+//       process.env.BACKEND_URL ||
+//       'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
+//         const attachments = (resp.attachments || []).map((file) => ({
+//           fileName: file.fileName,
+//           url: `${BASE_URL}/solutions/file/${file.fileId}`,
+//         }));
+
+//         return {
+//           _id: resp._id,
+//           tutorId: tutor?._id,
+//           tutorName: tutor?.name || 'Tutor',
+//           tutorAvatar,
+
+//           response: resp.response,
+//           attachments, // ✅ images included
+//           createdAt: resp.createdAt,
+//         };
+//       });
+
+
+//     res.status(200).json({ success: true, request: reqObj });
+//   } catch (error) {
+//     console.error('Error fetching solution request by ID:', error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
 const getSolutionRequestById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ✅ Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid request ID' });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request ID',
+      });
     }
 
-    // ✅ Find the specific request
     const request = await Solution.findById(id)
-      .populate('studentId', 'name email institution course ')
+      .populate('studentId', 'name email institution course')
       .populate('tutorResponses.tutorId', 'name email avatar');
+
     if (!request) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Request not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found',
+      });
     }
 
-   
-
-    // // ✅ Increment views
-    // request.views = (request.views || 0) + 1;
-    // await request.save();
-
-    // ✅ Convert to plain object
     const reqObj = request.toObject();
 
-    // ✅ Add file URLs
-    // reqObj.attachments = reqObj.attachments.map((file) => ({
-    //   ...file,
-    //   url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
-    // }));
-    // ✅ Format attachments using the solution.attachments field
     const BASE_URL =
       process.env.BACKEND_URL ||
       'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
-    reqObj.attachments = reqObj.attachments.map((file) => ({
+
+    // ✅ REQUEST ATTACHMENTS
+    reqObj.attachments = (reqObj.attachments || []).map((file) => ({
       fileName: file.fileName,
-      url: `${BASE_URL}/solutions/file/${file.fileId}`, // use solution field
+      url: `${BASE_URL}/solutions/file/${file.fileId}`,
     }));
 
-    // Format tutorResponses with avatar
-    // reqObj.tutorResponses = reqObj.tutorResponses.map((resp) => {
-    //   const tutor = resp.tutorId;
-    //   const tutorAvatar = tutor?.avatar?.data
-    //     ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-    //         'base64',
-    //       )}`
-    //     : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    //         tutor?.name || 'Tutor',
-    //       )}&background=random`;
+    // ✅ ALL RESPONSES (NO FILTER ❗)
+    reqObj.tutorResponses = (reqObj.tutorResponses || []).map((resp) => {
+      const tutor = resp.tutorId;
 
-    //        // ✅ RESPONSE ATTACHMENTS (🔥 THIS WAS MISSING)
-    //   const attachments = (resp.attachments || []).map((file) => ({
-    //     fileName: file.fileName,
-    //     url: `${req.protocol}://${req.get('host')}/solutions/file/${file.fileId}`,
-    //   }));
-        
+      const tutorAvatar = tutor?.avatar?.data
+        ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
+            'base64'
+          )}`
+        : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            tutor?.name || 'Tutor'
+          )}&background=random`;
 
-    //   return {
-    //     _id: resp._id,
-    //     tutorId: tutor?._id,
-    //     tutorName: tutor?.name || 'Tutor',
-    //     tutorAvatar,
-    //     attachments, // ✅ Include response attachments
-    //     response: resp.response,
-    //     createdAt: resp.createdAt,
-    //   };
-    // });
-    // console.log(reqObj);
+      const attachments = (resp.attachments || []).map((file) => ({
+        fileName: file.fileName,
+        url: `${BASE_URL}/solutions/file/${file.fileId}`,
+      }));
 
-        // ✅ FILTER + FORMAT RESPONSES
-    // =========================
-    const tutorId = req.user?._id?.toString(); // 🔥 safe access
+      return {
+        _id: resp._id,
+        tutorId: tutor?._id,
+        tutorName: tutor?.name || 'Tutor',
+        tutorAvatar,
+        response: resp.response,
+        attachments,
+        createdAt: resp.createdAt,
+      };
+    });
 
-    reqObj.tutorResponses = (reqObj.tutorResponses || [])
-      // ✅ FILTER (only this tutor's responses)
-      .filter((resp) =>
-        tutorId ? resp.tutorId?._id?.toString() === tutorId : true
-      )
-
-      // ✅ MAP
-      .map((resp) => {
-        const tutor = resp.tutorId;
-
-        const tutorAvatar = tutor?.avatar?.data
-          ? `data:${tutor.avatar.contentType};base64,${tutor.avatar.data.toString(
-              'base64'
-            )}`
-          : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              tutor?.name || 'Tutor'
-            )}&background=random`;
-
-        // ✅ RESPONSE ATTACHMENTS
-        const BASE_URL =
-      process.env.BACKEND_URL ||
-      'https://edukaster-server-9f4ff1bbef10.herokuapp.com';
-        const attachments = (resp.attachments || []).map((file) => ({
-          fileName: file.fileName,
-          url: `${BASE_URL}/solutions/file/${file.fileId}`,
-        }));
-
-        return {
-          _id: resp._id,
-          tutorId: tutor?._id,
-          tutorName: tutor?.name || 'Tutor',
-          tutorAvatar,
-
-          response: resp.response,
-          attachments, // ✅ images included
-          createdAt: resp.createdAt,
-        };
-      });
-
-
-    res.status(200).json({ success: true, request: reqObj });
+    res.status(200).json({
+      success: true,
+      request: reqObj,
+    });
   } catch (error) {
-    console.error('Error fetching solution request by ID:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Error fetching solution request:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
