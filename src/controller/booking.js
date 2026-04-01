@@ -851,13 +851,15 @@ const getTutorBookings = async (req, res) => {
       tutorId,
       adminConfirmed: true,
       status: 'confirmed',
+       studentId: { $ne: null }, // 👈 add this
     })
       .populate('studentId', 'name email avatar')
       .sort({ scheduledDate: -1 });
 
     const formattedBookings = bookings.map((b) => {
       const student = b.studentId;
-
+ // 🚨 Skip bookings with missing student
+    if (!student) return null;
       let avatarBase64 = null;
       if (student?.avatar?.data && student?.avatar?.contentType) {
         // Convert Buffer to Base64
@@ -895,7 +897,7 @@ const getTutorBookings = async (req, res) => {
           avatar: avatarBase64,
         },
       };
-    });
+    }).filter(Boolean);
 
     res.json({ success: true, bookings: formattedBookings });
     // console.log(formattedBookings);
