@@ -364,22 +364,76 @@ userSchema.pre('save', async function (next) {
 
 // Auto-detect tutor category
 
+// function normalize(text = '') {
+//   return text
+//     .toLowerCase()
+//     .replace(/[-_]/g, ' ')   // replace - and _
+//     .replace(/\s+/g, ' ')    // remove extra spaces
+//     .trim();
+// }
+
 function normalize(text = '') {
   return text
     .toLowerCase()
-    .replace(/[-_]/g, ' ')   // replace - and _
-    .replace(/\s+/g, ' ')    // remove extra spaces
+    .replace(/counsultant/g, 'consultant') // fix typo automatically
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
+
+// function detectCategory(courseTitle = '') {
+//   // const title = courseTitle.trim().toLowerCase();
+//   const title = normalize(courseTitle);
+//   const consultants = [
+//     'consultant',
+//     'business consultant',
+//     'career consultant',
+//     'education consultant',
+//   ];
+//   const englishCourses = [
+//     'pte',
+//     'toefl',
+//     'ielts',
+//     'sat',
+//     'gre',
+//     'english proficiency',
+//     'language test',
+//   ];
+//   const academicSubjects = [
+//     'mathematics',
+//     'math',
+//     'english',
+//     'physics',
+//     'chemistry',
+//     'biology',
+//     'economics',
+//     'government',
+//     'history',
+//     'geography',
+//     'literature',
+//     'computer science',
+//     'accounting',
+//     'commerce',
+//     'civic',
+//     'further mathematics',
+//     'agric',
+//   ];
+
+//   if (consultants.some((c) => title.includes(c))) return 'consultant';
+//   if (englishCourses.some((c) => title.includes(c))) return 'english';
+//   if (academicSubjects.some((c) => title.includes(c))) return 'academic';
+//   return 'others';
+// }
+
 function detectCategory(courseTitle = '') {
-  // const title = courseTitle.trim().toLowerCase();
   const title = normalize(courseTitle);
-  const consultants = [
-    'consultant',
-    'business consultant',
-    'career consultant',
-    'education consultant',
-  ];
+
+  // ✅ RULE 1: Anything containing "consultant" = consultant
+  if (title.includes('consultant')) {
+    return 'consultant';
+  }
+
+  // ✅ RULE 2: English proficiency / exams
   const englishCourses = [
     'pte',
     'toefl',
@@ -389,31 +443,15 @@ function detectCategory(courseTitle = '') {
     'english proficiency',
     'language test',
   ];
-  const academicSubjects = [
-    'mathematics',
-    'math',
-    'english',
-    'physics',
-    'chemistry',
-    'biology',
-    'economics',
-    'government',
-    'history',
-    'geography',
-    'literature',
-    'computer science',
-    'accounting',
-    'commerce',
-    'civic',
-    'further mathematics',
-    'agric',
-  ];
 
-  if (consultants.some((c) => title.includes(c))) return 'consultant';
-  if (englishCourses.some((c) => title.includes(c))) return 'english';
-  if (academicSubjects.some((c) => title.includes(c))) return 'academic';
-  return 'others';
+  if (englishCourses.some((c) => title.includes(c))) {
+    return 'english';
+  }
+
+  // ✅ RULE 3: EVERYTHING ELSE = academic (your requirement)
+  return 'academic';
 }
+
 
 userSchema.pre('save', function (next) {
   if (this.role === 'tutor' && this.courseTitle) {

@@ -312,7 +312,13 @@ if (type === 'exam') {
 
     
     // 🔹 Handle English Proficiency Group Session
-    if (type === 'exam' && courseTitle === 'English Proficiency') {
+    // if (type === 'exam' && courseTitle === 'English Proficiency')
+       
+    if (
+  type === 'exam' &&
+  courseTitle &&
+  courseTitle.toLowerCase().includes('english proficiency')
+){
       const GROUP_AMOUNT = 140000;
 
       // 1️⃣ Find existing active group for THIS tutor
