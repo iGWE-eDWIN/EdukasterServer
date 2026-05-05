@@ -281,17 +281,23 @@ const bookTutor = async (req, res) => {
 
     const tutor = await User.findById(tutorId);
 
-if (!tutor || tutor.role !== 'tutor') {
-  return res.status(404).json({ message: 'Tutor not found' });
-}
+
 
 // 🔥 VERY IMPORTANT: derive type from tutor category
 let type = tutor.category;
 
-// Optional: normalize exam case
+// 🔥 fallback if category is missing or still "others"
+if (!type || type === 'others') {
+  type = detectCategory(tutor.courseTitle || '');
+}
+
+// normalize english → exam
 if (type === 'english') {
   type = 'exam';
 }
+
+console.log('Tutor category:', tutor.category);
+console.log('Tutor courseTitle:', tutor.courseTitle);
 
     // 🎯 TYPE-BASED VALIDATION
 if (type === 'academic') {
