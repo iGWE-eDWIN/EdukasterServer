@@ -275,6 +275,8 @@ const bookTutor = async (req, res) => {
       redirectUrl,
     } = req.body;
 
+    console.log(req.body);
+
     if (!tutorId || !scheduledDate) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
