@@ -268,7 +268,6 @@ const bookTutor = async (req, res) => {
       courseTitle,
       courseDetails,
       goal,
-      type,
       scheduledDate,
       sessionType = '1on1',
       duration = 60,
