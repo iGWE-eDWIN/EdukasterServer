@@ -12,7 +12,7 @@ const NotificationService = require('../services/notificationService');
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
 const { sendPushNotification } = require('../services/pushService');
-const { detectCategory } = require('../models/User');
+
 
 
 const getTutorAvailability = async (req, res) => {
@@ -77,6 +77,33 @@ const getTutorAvailability = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+function detectCategory(courseTitle = '') {
+  const title = normalize(courseTitle);
+
+  // ✅ RULE 1: Anything containing "consultant" = consultant
+  if (title.includes('consultant')) {
+    return 'consultant';
+  }
+
+  // ✅ RULE 2: English proficiency / exams
+  const englishCourses = [
+    'pte',
+    'toefl',
+    'ielts',
+    'sat',
+    'gre',
+    'english proficiency',
+    'language test',
+  ];
+
+  if (englishCourses.some((c) => title.includes(c))) {
+    return 'english';
+  }
+
+  // ✅ RULE 3: EVERYTHING ELSE = academic (your requirement)
+  return 'academic';
+}
 
 // const bookTutor = async (req, res) => {
 //   try {
