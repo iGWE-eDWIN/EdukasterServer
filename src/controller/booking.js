@@ -279,16 +279,23 @@ const bookTutor = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const tutor = await User.findById(tutorId);
+
+
+const tutor = await User.findById(tutorId);
 
 if (!tutor || tutor.role !== 'tutor') {
   return res.status(404).json({ message: 'Tutor not found' });
 }
 
-// 🔥 VERY IMPORTANT: derive type from tutor category
+// derive type
 let type = tutor.category;
 
-// Optional: normalize exam case
+// fallback (important)
+if (!type || type === 'others') {
+  type = detectCategory(tutor.courseTitle || '');
+}
+
+// normalize english → exam
 if (type === 'english') {
   type = 'exam';
 }
@@ -318,10 +325,10 @@ if (type === 'exam') {
   }
 }
 
-    const tutor = await User.findById(tutorId);
-    if (!tutor || tutor.role !== 'tutor') {
-      return res.status(404).json({ message: 'Tutor not found' });
-    }
+    // const tutor = await User.findById(tutorId);
+    // if (!tutor || tutor.role !== 'tutor') {
+    //   return res.status(404).json({ message: 'Tutor not found' });
+    // }
 
     
     // 🔹 Handle English Proficiency Group Session
