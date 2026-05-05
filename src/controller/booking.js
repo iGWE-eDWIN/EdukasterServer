@@ -280,6 +280,20 @@ const bookTutor = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    const tutor = await User.findById(tutorId);
+
+if (!tutor || tutor.role !== 'tutor') {
+  return res.status(404).json({ message: 'Tutor not found' });
+}
+
+// 🔥 VERY IMPORTANT: derive type from tutor category
+let type = tutor.category;
+
+// Optional: normalize exam case
+if (type === 'english') {
+  type = 'exam';
+}
+
     // 🎯 TYPE-BASED VALIDATION
 if (type === 'academic') {
   if (!courseTitle || !courseDetails || !goal) {
