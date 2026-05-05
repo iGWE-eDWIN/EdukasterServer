@@ -289,13 +289,21 @@ if (!tutor || tutor.role !== 'tutor') {
   return res.status(404).json({ message: 'Tutor not found' });
 }
 
-// derive type
-let type = tutor.category;
+// // derive type
+// let type = tutor.category;
 
-// fallback (important)
-if (!type || type === 'others') {
-  type = detectCategory(tutor.courseTitle || '');
-}
+// // fallback (important)
+// if (!type || type === 'others') {
+//   type = detectCategory(tutor.courseTitle || '');
+// }
+
+// // normalize english → exam
+// if (type === 'english') {
+//   type = 'exam';
+// }
+
+// 🔥 ALWAYS derive from booking context (not DB, not frontend type)
+let type = detectCategory(courseTitle || tutor.courseTitle || '');
 
 // normalize english → exam
 if (type === 'english') {
