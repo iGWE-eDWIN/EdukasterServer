@@ -339,25 +339,63 @@ if (!tutor || tutor.role !== 'tutor') {
 //   type = 'exam';
 // }
 
-// 🔥 ALWAYS derive from booking context (not DB, not frontend type)
-let type = detectCategory(courseTitle || tutor.courseTitle || '');
+// // 🔥 ALWAYS derive from booking context (not DB, not frontend type)
+// let type = detectCategory(courseTitle || tutor.courseTitle || '');
+
+
+// 🧠 SINGLE SOURCE OF TRUTH
+let type =
+  tutor.category && tutor.category !== 'others'
+    ? tutor.category
+    : detectCategory(tutor.courseTitle || courseTitle || '');
 
 // normalize english → exam
-if (type === 'english') {
-  type = 'exam';
-}
+// if (type === 'english') {
+//   type = 'exam';
+// }
+
+
+if (type === 'english') type = 'exam';
 
     // 🎯 TYPE-BASED VALIDATION
+// if (type === 'academic') {
+//   if (!courseTitle || !courseDetails || !goal) {
+//     return res.status(400).json({
+//       message: 'Academic booking requires courseTitle, courseDetails and goal',
+//     });
+//   }
+// }
+
+// if (type === 'consultant') {
+//   if (!goal) {
+//     return res.status(400).json({
+//       message: 'Consultant booking requires session goal',
+//     });
+//   }
+// }
+
+// if (type === 'exam') {
+//   if (!courseTitle) {
+//     return res.status(400).json({
+//       message: 'Exam booking requires courseTitle',
+//     });
+//   }
+// }
+
 if (type === 'academic') {
-  if (!courseTitle || !courseDetails || !goal) {
+  const hasAnyAcademicData =
+    courseTitle?.trim() || courseDetails?.trim() || goal?.trim();
+
+  if (!hasAnyAcademicData) {
     return res.status(400).json({
-      message: 'Academic booking requires courseTitle, courseDetails and goal',
+      message:
+        'Academic booking requires at least courseTitle, courseDetails or goal',
     });
   }
 }
 
 if (type === 'consultant') {
-  if (!goal) {
+  if (!goal?.trim()) {
     return res.status(400).json({
       message: 'Consultant booking requires session goal',
     });
@@ -365,7 +403,7 @@ if (type === 'consultant') {
 }
 
 if (type === 'exam') {
-  if (!courseTitle) {
+  if (!courseTitle?.trim()) {
     return res.status(400).json({
       message: 'Exam booking requires courseTitle',
     });
