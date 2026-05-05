@@ -12,6 +12,7 @@ const NotificationService = require('../services/notificationService');
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
 const { sendPushNotification } = require('../services/pushService');
+const { detectCategory } = require('../models/User');
 
 
 const getTutorAvailability = async (req, res) => {

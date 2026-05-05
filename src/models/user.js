@@ -489,3 +489,4 @@ userSchema.methods.isLocked = function () {
 const User = model('User', userSchema);
 
 module.exports = User;
+module.exports.detectCategory = detectCategory;
