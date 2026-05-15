@@ -344,10 +344,12 @@ if (!tutor || tutor.role !== 'tutor') {
 
 
 // 🧠 SINGLE SOURCE OF TRUTH
-let type =
-  tutor.category && tutor.category !== 'others'
-    ? tutor.category
-    : detectCategory(tutor.courseTitle || courseTitle || '');
+// let type =
+//   tutor.category && tutor.category !== 'others'
+//     ? tutor.category
+//     : detectCategory(tutor.courseTitle || courseTitle || '');
+
+let type = detectCategory(courseTitle || tutor.courseTitle || '');
 
 // normalize english → exam
 // if (type === 'english') {
