@@ -38,7 +38,7 @@ router.patch(
 );
 router.patch('/users/:id/role', auth, authorize('admin'), changeUserRole);
 
-router.put('/users/:tutorId/fee', auth, authorize('admin'), setTutorAdminFee);
+router.put('/users/tutor-fees', auth, authorize('admin'), setTutorAdminFee);
 
 // Admin track daily login streak
 router.get(
