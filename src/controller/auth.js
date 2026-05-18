@@ -864,21 +864,44 @@ const updateProfile = async (req, res) => {
       updates['fees.tutorFee'] = Number(tutorFee);
     }
 
+    // if (availableDays) {
+    //   const parsedDays =
+    //     typeof availableDays === 'string'
+    //       ? JSON.parse(availableDays)
+    //       : availableDays;
+    //   const available = Object.entries(parsedDays).map(([day, data]) => ({
+    //     day,
+    //     from: data.from,
+    //     to: data.to,
+    //     ampmFrom: data.ampmFrom,
+    //     ampmTo: data.ampmTo,
+    //     active: data.active,
+    //   }));
+    //   updates.availability = available;
+    // }
+
+
+
     if (availableDays) {
-      const parsedDays =
-        typeof availableDays === 'string'
-          ? JSON.parse(availableDays)
-          : availableDays;
-      const available = Object.entries(parsedDays).map(([day, data]) => ({
-        day,
-        from: data.from,
-        to: data.to,
-        ampmFrom: data.ampmFrom,
-        ampmTo: data.ampmTo,
-        active: data.active,
-      }));
-      updates.availability = available;
-    }
+  const parsedDays =
+    typeof availableDays === 'string'
+      ? JSON.parse(availableDays)
+      : availableDays;
+
+  // ✅ prevent accidental overwrite with empty object
+  if (Object.keys(parsedDays).length > 0) {
+    const available = Object.entries(parsedDays).map(([day, data]) => ({
+      day,
+      from: data.from,
+      to: data.to,
+      ampmFrom: data.ampmFrom,
+      ampmTo: data.ampmTo,
+      active: data.active,
+    }));
+
+    updates.availability = available;
+  }
+}
 
     // If avatar uploaded
     if (req.file) {
