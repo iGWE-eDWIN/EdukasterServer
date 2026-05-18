@@ -409,36 +409,79 @@ const changeUserRole = async (req, res) => {
 //   }
 // };
 
+// const setTutorAdminFee = async (req, res) => {
+//   try {
+//     const { tutorId } = req.params;
+//     const { adminFee } = req.body;
+
+//     const tutor = await User.findById(tutorId);
+//     if (!tutor || tutor.role !== 'tutor') {
+//       return res.status(404).json({ message: 'Tutor not found' });
+//     }
+
+//     const newAdminFee = Number(adminFee) || 0;
+//     const tutorFee = Number(tutor.fees?.tutorFee || 0);
+//     const totalFee = tutorFee + newAdminFee;
+
+//     tutor.fees.adminFee = newAdminFee;
+//     tutor.fees.totalFee = totalFee;
+//     tutor.markModified('fees'); // ✅ ensures nested save works
+//     await tutor.save();
+
+//     console.log(tutor.fees.adminFee);
+//     console.log(tutor.fees.tutorFee);
+//     console.log(tutor.fees.totalFee);
+
+//     res.status(200).json({
+//       message: 'Tutor admin fee set successfully',
+//       user: formatUser(tutor),
+//     });
+//   } catch (error) {
+//     console.error('setTutorAdminFee error:', error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 const setTutorAdminFee = async (req, res) => {
   try {
-    const { tutorId } = req.params;
-    const { adminFee } = req.body;
+    // admin sends percentage
+    // if none sent -> default 15%
+    const percentage = Number(req.body.adminFee || 15);
 
-    const tutor = await User.findById(tutorId);
-    if (!tutor || tutor.role !== 'tutor') {
-      return res.status(404).json({ message: 'Tutor not found' });
+    // get all tutors
+    const tutors = await User.find({ role: 'tutor' });
+
+    for (const tutor of tutors) {
+      const tutorFee = Number(tutor.fees?.tutorFee || 0);
+
+      // calculate Edukaster commission
+      const calculatedAdminFee = Math.round(
+        (tutorFee * percentage) / 100
+      );
+
+      tutor.fees.adminFee = calculatedAdminFee;
+
+      // student still pays tutor's original fee
+      tutor.fees.totalFee = tutorFee;
+
+      // store percentage
+      tutor.fees.commissionPercentage = percentage;
+
+      tutor.markModified('fees');
+
+      await tutor.save();
     }
 
-    const newAdminFee = Number(adminFee) || 0;
-    const tutorFee = Number(tutor.fees?.tutorFee || 0);
-    const totalFee = tutorFee + newAdminFee;
-
-    tutor.fees.adminFee = newAdminFee;
-    tutor.fees.totalFee = totalFee;
-    tutor.markModified('fees'); // ✅ ensures nested save works
-    await tutor.save();
-
-    console.log(tutor.fees.adminFee);
-    console.log(tutor.fees.tutorFee);
-    console.log(tutor.fees.totalFee);
-
-    res.status(200).json({
-      message: 'Tutor admin fee set successfully',
-      user: formatUser(tutor),
+    return res.status(200).json({
+      success: true,
+      message: `${percentage}% commission applied to all tutors`,
     });
   } catch (error) {
     console.error('setTutorAdminFee error:', error);
-    res.status(500).json({ message: error.message });
+
+    return res.status(500).json({
+      message: error.message,
+    });
   }
 };
 

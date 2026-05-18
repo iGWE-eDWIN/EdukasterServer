@@ -860,9 +860,9 @@ const updateProfile = async (req, res) => {
     if (experience) updates.experience = experience;
 
     // ✅ Update tutor fee only — do not compute total yet
-    if (tutorFee !== undefined) {
-      updates['fees.tutorFee'] = Number(tutorFee);
-    }
+    // if (tutorFee !== undefined) {
+    //   updates['fees.tutorFee'] = Number(tutorFee);
+    // }
 
     // if (availableDays) {
     //   const parsedDays =
@@ -880,7 +880,31 @@ const updateProfile = async (req, res) => {
     //   updates.availability = available;
     // }
 
+// ✅ Update tutor fee + dynamic Edukaster commission
+if (tutorFee !== undefined) {
+  // get current user
+  const existingUser = await User.findById(userId);
 
+  const fee = Number(tutorFee);
+
+  // use saved percentage OR default to 15%
+  const percentage = Number(
+    existingUser?.fees?.commissionPercentage || 15
+  );
+
+  // calculate Edukaster commission
+  const adminFee = Math.round((fee * percentage) / 100);
+
+  updates['fees.tutorFee'] = fee;
+
+  // amount Edukaster keeps
+  updates['fees.adminFee'] = adminFee;
+
+  // amount student pays
+  updates['fees.totalFee'] = fee;
+
+  updates['fees.commissionPercentage'] = percentage;
+}
 
     if (availableDays) {
   const parsedDays =
