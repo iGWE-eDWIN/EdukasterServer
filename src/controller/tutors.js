@@ -222,33 +222,53 @@ const getAllTutors = async (req, res) => {
     }
 
 
+    // const tutors = await User.find(filters)
+    //   .select('name courseTitle experience rating category avatar fees')
+    //   .sort({ createdAt: -1 });
     const tutors = await User.find(filters)
-      .select('name courseTitle experience rating category avatar fees')
-      .sort({ createdAt: -1 });
+  .select('name courseTitle experience category fees averageRating')
+  .lean();
 
-      const tutorsWithLightPayload = tutors.map((tutor) => {
-  const t = tutor.toObject();
+//       const tutorsWithLightPayload = tutors.map((tutor) => {
+//   const t = tutor.toObject();
 
+//   return {
+//     _id: t._id,
+//     name: t.name,
+//     courseTitle: t.courseTitle,
+//     experience: t.experience,
+//     category: t.category,
+
+//     // IMPORTANT: only tutor fee
+//     fee: t.fees?.tutorFee || 0,
+
+//     // optional admin display
+//     rating: t.averageRating || 0,
+
+//     avatar: t.avatar
+//       ? `${process.env.BACKEND_URL}/users/avatar/${t._id}`
+//       : null,
+//   };
+// });
+
+const tutorsWithLightPayload = tutors.map((tutor) => {
   return {
-    _id: t._id,
-    name: t.name,
-    courseTitle: t.courseTitle,
-    experience: t.experience,
-    category: t.category,
+    _id: tutor._id,
+    name: tutor.name,
+    courseTitle: tutor.courseTitle,
+    experience: tutor.experience,
+    category: tutor.category,
 
-    // IMPORTANT: only tutor fee
-    fee: t.fees?.tutorFee || 0,
+    fee: tutor.fees?.tutorFee || 0,
+    rating: tutor.averageRating || 0,
 
-    // optional admin display
-    rating: t.averageRating || 0,
-
-    avatar: t.avatar
-      ? `${process.env.BACKEND_URL}/users/avatar/${t._id}`
+    avatar: tutor.avatar
+      ? `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`
       : null,
   };
-});
+});    
 
-    res.status(200).json({
+res.status(200).json({
       success: true,
       count: tutors.length,
       tutors: tutorsWithLightPayload // ✅ Important

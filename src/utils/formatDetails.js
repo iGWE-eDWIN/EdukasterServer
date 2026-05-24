@@ -1,38 +1,38 @@
-const formatUser = (user) => {
-  if (!user) return null;
+// const formatUser = (user) => {
+//   if (!user) return null;
 
-  const userObj = user.toObject();
+//   const userObj = user.toObject();
 
-  // if (userObj.avatar && userObj.avatar.data) {
-  //   userObj.avatar = `data:${
-  //     userObj.avatar.contentType
-  //   };base64,${userObj.avatar.data.toString('base64')}`;
-  // } else {
-  //   userObj.avatar = null; // or default placeholder
-  // }
-if (userObj.avatar && userObj.avatar.data) {
-  userObj.avatar = `${process.env.BACKEND_URL}/users/avatar/${userObj._id}`;
-} else {
-  userObj.avatar = null;
-}
-  delete userObj.password; // never send password
-  delete userObj.tokens; // optional, hide tokens array
+//   // if (userObj.avatar && userObj.avatar.data) {
+//   //   userObj.avatar = `data:${
+//   //     userObj.avatar.contentType
+//   //   };base64,${userObj.avatar.data.toString('base64')}`;
+//   // } else {
+//   //   userObj.avatar = null; // or default placeholder
+//   // }
+// if (userObj.avatar && userObj.avatar.data) {
+//   userObj.avatar = `${process.env.BACKEND_URL}/users/avatar/${userObj._id}`;
+// } else {
+//   userObj.avatar = null;
+// }
+//   delete userObj.password; // never send password
+//   delete userObj.tokens; // optional, hide tokens array
 
-  // Ensure availability is fully included
-  if (userObj.availability && userObj.availability.length > 0) {
-    userObj.availability = userObj.availability.map((slot) => ({
-      day: slot.day,
-      from: slot.from,
-      to: slot.to,
-      ampmFrom: slot.ampmFrom,
-      ampmTo: slot.ampmTo,
-      active: slot.active,
-    }));
-  } else {
-    userObj.availability = [];
-  }
-  return userObj;
-};
+//   // Ensure availability is fully included
+//   if (userObj.availability && userObj.availability.length > 0) {
+//     userObj.availability = userObj.availability.map((slot) => ({
+//       day: slot.day,
+//       from: slot.from,
+//       to: slot.to,
+//       ampmFrom: slot.ampmFrom,
+//       ampmTo: slot.ampmTo,
+//       active: slot.active,
+//     }));
+//   } else {
+//     userObj.availability = [];
+//   }
+//   return userObj;
+// };
 
 const isTutorAvailable = (tutor, day, currentTime, ampm) => {
   if (!tutor.availability) return false;
@@ -75,4 +75,31 @@ const isTutorAvailable = (tutor, day, currentTime, ampm) => {
   });
 };
 
+const formatUser = (user) => {
+  if (!user) return null;
+
+  const userObj = user.toObject();
+
+  delete userObj.password;
+  delete userObj.tokens;
+
+  // availability cleanup
+  userObj.availability = userObj.availability?.map(slot => ({
+    day: slot.day,
+    from: slot.from,
+    to: slot.to,
+    ampmFrom: slot.ampmFrom,
+    ampmTo: slot.ampmTo,
+    active: slot.active,
+  })) || [];
+
+  // FIXED AVATAR LOGIC
+  if (userObj.avatar?.data) {
+    userObj.avatar = `${process.env.BACKEND_URL}/users/avatar/${userObj._id}`;
+  } else {
+    userObj.avatar = null; // fallback
+  }
+
+  return userObj;
+};
 module.exports = { formatUser, isTutorAvailable };

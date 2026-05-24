@@ -20,27 +20,21 @@ router.get('/users/avatar/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('avatar');
 
-    if (!user) {
-      return res.status(404).send('User not found');
-    }
-
-    if (!user.avatar || !user.avatar.data) {
+    if (!user || !user.avatar || !user.avatar.data) {
       return res.status(404).send('No avatar');
     }
 
-    const imageBuffer = Buffer.isBuffer(user.avatar.data)
+    const buffer = Buffer.isBuffer(user.avatar.data)
       ? user.avatar.data
       : Buffer.from(user.avatar.data);
 
     res.set('Content-Type', user.avatar.contentType || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');
 
-    return res.end(imageBuffer); // 🔥 IMPORTANT FIX
+    return res.end(buffer);
   } catch (err) {
-    console.error('AVATAR ERROR:', err);
-    return res.status(500).json({
-      message: err.message,
-    });
+    console.error('Avatar error:', err);
+    return res.status(500).json({ message: err.message });
   }
 });
 
