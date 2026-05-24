@@ -262,11 +262,9 @@ const tutorsWithLightPayload = tutors.map((tutor) => {
     fee: tutor.fees?.tutorFee || 0,
     rating: tutor.averageRating || 0,
 
-    avatar: tutor.avatar
-      ? `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`
-      : null,
+    avatar: `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`,
   };
-});    
+});
 
 res.status(200).json({
       success: true,
