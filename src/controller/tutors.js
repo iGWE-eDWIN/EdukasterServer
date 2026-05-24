@@ -180,8 +180,8 @@ const getAllTutors = async (req, res) => {
       filters.$or = [
         { name: { $regex: search, $options: 'i' } },
         { courseTitle: { $regex: search, $options: 'i' } },
-        { courseDetails: { $regex: search, $options: 'i' } },
-        { institution: { $regex: search, $options: 'i' } },
+        // { courseDetails: { $regex: search, $options: 'i' } },
+        // { institution: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -226,10 +226,32 @@ const getAllTutors = async (req, res) => {
       .select('name courseTitle experience rating category avatar fees')
       .sort({ createdAt: -1 });
 
+      const tutorsWithLightPayload = tutors.map((tutor) => {
+  const t = tutor.toObject();
+
+  return {
+    _id: t._id,
+    name: t.name,
+    courseTitle: t.courseTitle,
+    experience: t.experience,
+    category: t.category,
+
+    // IMPORTANT: only tutor fee
+    fee: t.fees?.tutorFee || 0,
+
+    // optional admin display
+    rating: t.averageRating || 0,
+
+    avatar: t.avatar
+      ? `${process.env.BACKEND_URL}/users/avatar/${t._id}`
+      : null,
+  };
+});
+
     res.status(200).json({
       success: true,
       count: tutors.length,
-      tutors: tutors.map(formatUser), // ✅ Important
+      tutors: tutorsWithLightPayload // ✅ Important
     });
   } catch (error) {
     console.error('getTutors error:', error);

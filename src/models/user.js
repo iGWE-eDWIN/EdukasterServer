@@ -490,6 +490,9 @@ userSchema.methods.isLocked = function () {
   return this.lockUntil && this.lockUntil > Date.now();
 };
 
+userSchema.index({ role: 1, isApproved: 1, category: 1 });
+userSchema.index({ name: 'text', courseTitle: 'text' });
+
 const User = model('User', userSchema);
 
 module.exports = User;

@@ -16,6 +16,22 @@ const {
 } = require('../controller/users');
 
 const router = new express.Router();
+router.get('/users/avatar/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('avatar');
+
+    if (!user || !user.avatar?.data) {
+      return res.status(404).send('No avatar');
+    }
+
+    res.set('Content-Type', user.avatar.contentType);
+    res.set('Cache-Control', 'public, max-age=86400'); // cache 1 day
+
+    return res.send(user.avatar.data);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
 
 router.get('/users', auth, authorize('admin'), getAllUsers);
 router.get(
