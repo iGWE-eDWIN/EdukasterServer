@@ -173,11 +173,15 @@ userSchema = new Schema(
         active: { type: Boolean, default: false },
       },
     ],
+    // fees: {
+    //   tutorFee: { type: Number, default: 0 }, // tutor’s own fee
+    //   adminFee: { type: Number, default: 0 }, // admin’s portion
+    //   totalFee: { type: Number, default: 0 }, // tutorFee + adminFee
+    // },
     fees: {
-      tutorFee: { type: Number, default: 0 }, // tutor’s own fee
-      adminFee: { type: Number, default: 0 }, // admin’s portion
-      totalFee: { type: Number, default: 0 }, // tutorFee + adminFee
-    },
+  tutorFee: { type: Number, default: 0 },
+  commissionPercentage: { type: Number, default: 15 }
+},
     // rating: {
     //   type: Number,
     //   default: 0,

@@ -1,7 +1,9 @@
 const User = require('../models/user');
 const Wallet = require('../models/wallet');
+const Settings = require('../models/settings')
 const { formatUser } = require('../utils/formatDetails');
 const { sendEmail } = require('../utils/email');
+
 
 // Get all users
 const getAllUsers = async (req, res) => {
@@ -442,46 +444,70 @@ const changeUserRole = async (req, res) => {
 //   }
 // };
 
+// const setTutorAdminFee = async (req, res) => {
+//   try {
+//     // admin sends percentage
+//     // if none sent -> default 15%
+//     const percentage = Number(req.body.adminFee || 15);
+
+//     // get all tutors
+//     const tutors = await User.find({ role: 'tutor' });
+
+//     for (const tutor of tutors) {
+//       const tutorFee = Number(tutor.fees?.tutorFee || 0);
+
+//       // calculate Edukaster commission
+//       const calculatedAdminFee = Math.round(
+//         (tutorFee * percentage) / 100
+//       );
+
+//       tutor.fees.adminFee = calculatedAdminFee;
+
+//       // student still pays tutor's original fee
+//       tutor.fees.totalFee = tutorFee;
+
+//       // store percentage
+//       tutor.fees.commissionPercentage = percentage;
+
+//       tutor.markModified('fees');
+
+//       await tutor.save();
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: `${percentage}% commission applied to all tutors`,
+//     });
+//   } catch (error) {
+//     console.error('setTutorAdminFee error:', error);
+
+//     return res.status(500).json({
+//       message: error.message,
+//     });
+//   }
+// };
+
 const setTutorAdminFee = async (req, res) => {
   try {
-    // admin sends percentage
-    // if none sent -> default 15%
     const percentage = Number(req.body.adminFee || 15);
 
-    // get all tutors
-    const tutors = await User.find({ role: 'tutor' });
-
-    for (const tutor of tutors) {
-      const tutorFee = Number(tutor.fees?.tutorFee || 0);
-
-      // calculate Edukaster commission
-      const calculatedAdminFee = Math.round(
-        (tutorFee * percentage) / 100
-      );
-
-      tutor.fees.adminFee = calculatedAdminFee;
-
-      // student still pays tutor's original fee
-      tutor.fees.totalFee = tutorFee;
-
-      // store percentage
-      tutor.fees.commissionPercentage = percentage;
-
-      tutor.markModified('fees');
-
-      await tutor.save();
+    if (isNaN(percentage) || percentage < 0) {
+      return res.status(400).json({ message: 'Invalid percentage' });
     }
+
+    // save GLOBAL setting (best practice)
+    await Settings.findOneAndUpdate(
+      { key: 'commission' },
+      { value: percentage },
+      { upsert: true }
+    );
 
     return res.status(200).json({
       success: true,
-      message: `${percentage}% commission applied to all tutors`,
+      message: `Commission set to ${percentage}%`,
     });
-  } catch (error) {
-    console.error('setTutorAdminFee error:', error);
-
-    return res.status(500).json({
-      message: error.message,
-    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
 

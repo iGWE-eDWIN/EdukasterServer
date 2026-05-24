@@ -563,9 +563,15 @@ if (type === 'exam') {
       return res.status(400).json({ message: 'Invalid payment method' });
     }
 
-    const amount =
-      tutor.fees?.totalFee ||
-      (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+    // const amount =
+    //   tutor.fees?.totalFee ||
+    //   (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
+
+    const tutorFee = Number(tutor.fees?.tutorFee || 0);
+const percentage = Number(tutor.fees?.commissionPercentage || 15);
+
+const adminFee = Math.round((tutorFee * percentage) / 100);
+const amount = tutorFee;  // keep as-is (DO NOT BREAK EXISTING LOGIC)
 
       if (type !== 'exam') {
   if (!amount || amount <= 0) {

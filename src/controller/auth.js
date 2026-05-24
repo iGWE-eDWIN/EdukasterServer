@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const Settings = require('../models/settings');
 const paystackService = require('../services/paystackService');
 const bcrypt = require('bcryptjs');
 const { formatUser } = require('../utils/formatDetails');
@@ -881,28 +882,36 @@ const updateProfile = async (req, res) => {
     // }
 
 // ✅ Update tutor fee + dynamic Edukaster commission
+// if (tutorFee !== undefined) {
+//   // get current user
+//   const existingUser = await User.findById(userId);
+
+//   const fee = Number(tutorFee);
+
+//   // use saved percentage OR default to 15%
+//   const percentage = Number(
+//     existingUser?.fees?.commissionPercentage || 15
+//   );
+
+//   // calculate Edukaster commission
+//   const adminFee = Math.round((fee * percentage) / 100);
+
+//   updates['fees.tutorFee'] = fee;
+
+//   // amount Edukaster keeps
+//   updates['fees.adminFee'] = adminFee;
+
+//   // amount student pays
+//   updates['fees.totalFee'] = fee;
+
+//   updates['fees.commissionPercentage'] = percentage;
+// }
+
 if (tutorFee !== undefined) {
-  // get current user
-  const existingUser = await User.findById(userId);
+  const percentage =
+    (await Settings.findOne({ key: 'commission' }))?.value || 15;
 
-  const fee = Number(tutorFee);
-
-  // use saved percentage OR default to 15%
-  const percentage = Number(
-    existingUser?.fees?.commissionPercentage || 15
-  );
-
-  // calculate Edukaster commission
-  const adminFee = Math.round((fee * percentage) / 100);
-
-  updates['fees.tutorFee'] = fee;
-
-  // amount Edukaster keeps
-  updates['fees.adminFee'] = adminFee;
-
-  // amount student pays
-  updates['fees.totalFee'] = fee;
-
+  updates['fees.tutorFee'] = Number(tutorFee);
   updates['fees.commissionPercentage'] = percentage;
 }
 
