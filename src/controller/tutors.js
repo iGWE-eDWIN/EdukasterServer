@@ -257,9 +257,9 @@ const tutorsWithLightPayload = tutors.map((tutor) => {
     name: tutor.name,
     courseTitle: tutor.courseTitle,
     experience: tutor.experience,
-    category: tutor.category,
+    // category: tutor.category,
 
-    fee: tutor.fees?.tutorFee || 0,
+    // fee: tutor.fees?.tutorFee || 0,
     rating: tutor.averageRating || 0,
 
     avatar: `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`,

@@ -100,6 +100,10 @@ bookingSchema = new Schema(
     fixedPrice: { type: Number }, // 140000 for English Proficiency
     fixedDuration: { type: Number }, // 2 weeks in minutes
     courseTitle: { type: String, required: true },
+    type: {
+  type: String,
+  enum: ['academic', 'consultant', 'exam'],
+},
     scheduledDate: {
       type: Date,
       required: true,

@@ -455,14 +455,25 @@ if (type === 'exam') {
       }
 
       // 3️⃣ Check if student already joined THIS tutor's group
-      const alreadyJoined = await Booking.exists({
-        tutorId,
-        courseTitle,
-        sessionType: 'group',
-        groupStudents: studentId,
-        status: { $in: ['pending', 'confirmed'] },
-      });
+      // const alreadyJoined = await Booking.exists({
+      //   tutorId,
+      //   courseTitle,
+      //   sessionType: 'group',
+      //   groupStudents: studentId,
+      //   status: { $in: ['pending', 'confirmed'] },
+      // });
 
+   const alreadyJoined = await Booking.exists({
+  tutorId,
+  courseTitle,
+  sessionType: 'group',
+  groupStudents: {
+    $elemMatch: {
+      student: studentId,
+    },
+  },
+  status: { $in: ['pending', 'confirmed'] },
+});
       if (alreadyJoined) {
         return res.status(400).json({
           message: 'You have already joined this session',
@@ -586,10 +597,15 @@ const amount = tutorFee;  // keep as-is (DO NOT BREAK EXISTING LOGIC)
     const requestedStart = new Date(scheduledDate);
     const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
 
+    // const bookingsThatDay = await Booking.find({
+    //   tutorId,
+    //   status: { $in: ['pending', 'approved'] },
+    // });
+
     const bookingsThatDay = await Booking.find({
-      tutorId,
-      status: { $in: ['pending', 'approved'] },
-    });
+  tutorId,
+  status: { $in: ['pending', 'confirmed'] },
+});
 
     const collides = bookingsThatDay.some((b) => {
       const bStart = new Date(b.scheduledDate);
@@ -793,6 +809,16 @@ const verifyBookingPayment = async (req, res) => {
 
     const meta = verification.data.data.metadata;
 
+    const existingBooking = await Booking.findOne({
+  paystackReference: reference,
+});
+
+if (existingBooking) {
+  return res.redirect(
+    `${meta.redirectUrl}?status=success&reference=${reference}`
+  );
+}
+
     const {
       studentId,
       tutorId,
@@ -940,11 +966,41 @@ const verifyBookingPayment = async (req, res) => {
 //   }
 // };
 
+// const getPendingBookings = async (req, res) => {
+//   try {
+//     const bookings = await Booking.find({
+//       status: 'pending',
+//       adminConfirmed: { $ne: true },
+//     })
+//       .populate('studentId', 'name email avatar')
+//       .populate('tutorId', 'name email avatar')
+//       .sort({ createdAt: -1 });
+
+//     res.status(200).json({
+//       success: true,
+//       count: bookings.length,
+//       bookings,
+//     });
+//   } catch (err) {
+//     console.error('getPendingBookings error:', err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
+
 const getPendingBookings = async (req, res) => {
   try {
+
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      Pragma: 'no-cache',
+      Expires: '0',
+    });
+
     const bookings = await Booking.find({
       status: 'pending',
-      adminConfirmed: { $ne: true },
+      adminConfirmed: false,
+      paymentStatus: 'paid',
     })
       .populate('studentId', 'name email avatar')
       .populate('tutorId', 'name email avatar')
@@ -955,9 +1011,14 @@ const getPendingBookings = async (req, res) => {
       count: bookings.length,
       bookings,
     });
+
   } catch (err) {
     console.error('getPendingBookings error:', err);
-    res.status(500).json({ success: false, message: err.message });
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
