@@ -19,7 +19,7 @@ const {
 const router = new express.Router();
 router.get('/users/avatar/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('avatar');
+    const user = await User.findById(req.params.id).select('avatar updatedAt');
 
     if (!user || !user.avatar || !user.avatar.data) {
       return res.status(404).send('No avatar');
@@ -29,8 +29,12 @@ router.get('/users/avatar/:id', async (req, res) => {
       ? user.avatar.data
       : Buffer.from(user.avatar.data);
 
-    res.set('Content-Type', user.avatar.contentType || 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=86400');
+    // 🚀 STRONG CACHE HEADERS (IMPORTANT)
+    res.set({
+      'Content-Type': user.avatar.contentType || 'image/jpeg',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      ETag: `"${user._id}-${user.updatedAt.getTime()}"`,
+    });
 
     return res.end(buffer);
   } catch (err) {
