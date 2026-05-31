@@ -93,7 +93,7 @@ const getTutorById = async (req, res) => {
 
     res.status(200).json({
       _id: tutor._id,
-      tutorName: tutor.name,
+      name: tutor.name,
       avatar: tutor.avatar?.data
         ? `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`
         : null,
