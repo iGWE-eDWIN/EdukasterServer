@@ -2,37 +2,83 @@ const User = require('../models/user');
 const { formatUser, isTutorAvailable } = require('../utils/formatDetails');
 
 // ✅ GET available tutors for current day/time
+// const getAvailableTutors = async (req, res) => {
+//   try {
+//     // Example: pass ?day=Monday&time=10:30&ampm=AM
+//     // console.log(req.query);
+//     const { day, time, ampm } = req.query;
+
+//     if (!day || !time || !ampm) {
+//       return res
+//         .status(400)
+//         .json({ message: 'day, time, and ampm are required' });
+//     }
+
+//     const tutors = await User.find({
+//       role: 'tutor',
+//       isApproved: true,
+//       isActive: true,
+//     }).select('-password');
+
+//     const availableTutors = tutors
+//       .filter((tutor) => {
+//         const available = isTutorAvailable(tutor, day, time, ampm);
+//         // console.log(tutor.name, 'available?', available);
+//         return available;
+//       })
+//       .map(formatUser);
+//     console.log(availableTutors);
+//     res.status(200).json({ availableTutors });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 const getAvailableTutors = async (req, res) => {
   try {
-    // Example: pass ?day=Monday&time=10:30&ampm=AM
-    // console.log(req.query);
     const { day, time, ampm } = req.query;
 
     if (!day || !time || !ampm) {
-      return res
-        .status(400)
-        .json({ message: 'day, time, and ampm are required' });
+      return res.status(400).json({
+        message: 'day, time, and ampm are required',
+      });
     }
 
+    // ✅ FETCH ONLY WHAT YOU NEED
     const tutors = await User.find({
       role: 'tutor',
       isApproved: true,
       isActive: true,
-    }).select('-password');
+    })
+      .select(
+        '_id name courseTitle averageRating availability'
+      )
+      .lean();
 
+    // ✅ FILTER AVAILABLE TUTORS
     const availableTutors = tutors
-      .filter((tutor) => {
-        const available = isTutorAvailable(tutor, day, time, ampm);
-        // console.log(tutor.name, 'available?', available);
-        return available;
-      })
-      .map(formatUser);
-    console.log(availableTutors);
-    res.status(200).json({ availableTutors });
+      .filter((tutor) =>
+        isTutorAvailable(tutor, day, time, ampm)
+      )
+      .map((tutor) => ({
+        _id: tutor._id,
+        name: tutor.name,
+        courseTitle: tutor.courseTitle,
+        rating: tutor.averageRating || 0,
+      }));
+
+    return res.status(200).json({
+      availableTutors,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('AVAILABLE TUTORS ERROR:', error);
+
+    return res.status(500).json({
+      message: error.message,
+    });
   }
 };
+
 // ✅ GET tutor by ID
 const getTutorById = async (req, res) => {
   try {
