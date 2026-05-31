@@ -182,25 +182,7 @@ userSchema = new Schema(
   tutorFee: { type: Number, default: 0 },
   commissionPercentage: { type: Number, default: 15 }
 },
-    // rating: {
-    //   type: Number,
-    //   default: 0,
-    // },
-    // totalRatings: {
-    //   type: Number,
-    //   default: 0,
-    // },
-
-    // ratedBy: [
-    //   {
-    //     type: Schema.Types.ObjectId,
-    //     ref: 'User',
-    //   },
-    // ],
-    // ratingCount: {
-    //   type: Number,
-    //   default: 0,
-    // },
+   
 
     ratings: [
       {
