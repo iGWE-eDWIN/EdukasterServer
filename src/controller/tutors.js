@@ -44,18 +44,14 @@ const getAvailableTutors = async (req, res) => {
       });
     }
 
-    // ✅ FETCH ONLY WHAT YOU NEED
     const tutors = await User.find({
       role: 'tutor',
       isApproved: true,
       isActive: true,
-    })
-      .select(
-        '_id name courseTitle averageRating availability'
-      )
-      .lean();
+    }).select(
+      'name courseTitle averageRating avatar availability'
+    );
 
-    // ✅ FILTER AVAILABLE TUTORS
     const availableTutors = tutors
       .filter((tutor) =>
         isTutorAvailable(tutor, day, time, ampm)
@@ -65,13 +61,18 @@ const getAvailableTutors = async (req, res) => {
         name: tutor.name,
         courseTitle: tutor.courseTitle,
         rating: tutor.averageRating || 0,
+
+        avatar:
+          tutor.avatar?.data
+            ? `${process.env.BACKEND_URL}/users/avatar/${tutor._id}`
+            : null,
       }));
 
     return res.status(200).json({
       availableTutors,
     });
   } catch (error) {
-    console.error('AVAILABLE TUTORS ERROR:', error);
+    console.error('getAvailableTutors error:', error);
 
     return res.status(500).json({
       message: error.message,
