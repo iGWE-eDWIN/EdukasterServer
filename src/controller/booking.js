@@ -114,191 +114,52 @@ const getTutorAvailability = async (req, res) => {
 };
 
 
-// const bookTutor = async (req, res) => {
-//   try {
-//     const studentId = req.user._id;
 
-//     const {
-//       tutorId,
-//       courseTitle,
-//       scheduledDate,
-//       sessionType = '1on1',
-//       duration = 60,
-//       paymentMethod = 'wallet',
-//       redirectUrl,
-//     } = req.body;
-
-//     if (!tutorId || !scheduledDate || !courseTitle) {
-//       return res.status(400).json({ message: 'Missing required fields' });
-//     }
-
-//     const tutor = await User.findById(tutorId);
-//     if (!tutor || tutor.role !== 'tutor') {
-//       return res.status(404).json({ message: 'Tutor not found' });
-//     }
-
-//     const amount =
-//       tutor.fees?.totalFee ||
-//       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
-
-//     if (!amount || amount <= 0) {
-//       return res.status(400).json({ message: 'Invalid tutor fee' });
-//     }
-
-//     // 💳 Wallet Payment (instant)
-//     if (paymentMethod === 'wallet') {
-//       const student = await User.findById(studentId);
-
-//       if (!student || student.walletBalance < amount) {
-//         return res.status(402).json({ message: 'Insufficient wallet balance' });
-//       }
-
-//       const requestedStart = new Date(scheduledDate);
-//       const requestedEnd = new Date(
-//         requestedStart.getTime() + duration * 60000,
-//       );
-
-//       // Check overlapping bookings
-//       const bookingsThatDay = await Booking.find({
-//         tutorId,
-//         status: { $in: ['pending', 'confirmed'] },
-//       });
-
-//       const collides = bookingsThatDay.some((b) => {
-//         const bStart = new Date(b.scheduledDate);
-//         const bEnd = new Date(bStart.getTime() + b.duration * 60000);
-//         return requestedStart < bEnd && requestedEnd > bStart;
-//       });
-
-//       if (collides) {
-//         return res
-//           .status(400)
-//           .json({ message: 'Requested slot already booked' });
-//       }
-
-//       // Deduct wallet
-//       const balanceBefore = student.walletBalance;
-//       student.walletBalance -= amount;
-//       await student.save();
-
-//       const booking = await Booking.create({
-//         studentId,
-//         tutorId,
-//         courseTitle,
-//         scheduledDate: requestedStart,
-//         duration,
-//         amount,
-//         sessionType,
-//         paymentMethod: 'wallet',
-//         status: 'confirmed',
-//         paymentStatus: 'paid',
-//         attachment,
-//       });
-
-//       // Wallet transaction
-//       await Wallet.create({
-//         userId: student._id,
-//         type: 'debit',
-//         amount,
-//         description: `Booking with tutor ${tutor.name} for ${courseTitle}`,
-//         category: 'booking',
-//         balanceBefore,
-//         balanceAfter: student.walletBalance,
-//       });
-
-//       // Create session
-//       const { tutorShare, adminShare } = computeShares(amount, tutor);
-//       await Session.create({
-//         bookingId: booking._id,
-//         tutorId,
-//         studentId,
-//         scheduledDate: requestedStart,
-//         duration,
-//         amount,
-//         tutorShare,
-//         adminShare,
-//         status: 'scheduled',
-//       });
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Booking confirmed via wallet',
-//         booking,
-//         walletBalance: student.walletBalance,
-//       });
-//     }
-
-//     // 💳 Paystack Payment (deferred booking)
-//     if (paymentMethod === 'paystack') {
-//       const reference = paystackService.generateReference();
-//       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-
-//       const paymentData = await paystackService.initializeTransaction({
-//         email: req.user.email,
-//         amount,
-//         reference,
-//         callback_url: callbackUrl,
-//         metadata: {
-//           studentId,
-//           tutorId,
-//           courseTitle,
-//           scheduledDate,
-//           duration,
-//           sessionType,
-//           amount,
-//           redirectUrl,
-//         },
-//       });
-
-//       if (!paymentData.success) {
-//         return res.status(400).json({ message: paymentData.message });
-//       }
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Booking initialized. Complete payment via Paystack',
-//         authorization_url: paymentData.data.data.authorization_url,
-//         reference,
-//       });
-//     }
-
-//     return res.status(400).json({ message: 'Invalid payment method' });
-//   } catch (err) {
-//     console.error('bookTutor error:', err);
-//     res.status(500).json({ message: err.message });
-//   }
-// };
 
 // bookTutor with file upload handling
 const bookTutor = async (req, res) => {
   try {
     const studentId = req.user._id;
 
+    // let uploadedFileData = null;
+
+    // if (req.file) {
+    //   const uploadDir =
+    //     process.env.NODE_ENV === 'production'
+    //       ? '/tmp/bookings'
+    //       : path.join(__dirname, '..', 'uploads', 'bookings');
+
+    //   if (!fs.existsSync(uploadDir)) {
+    //     fs.mkdirSync(uploadDir, { recursive: true });
+    //   }
+
+    //   const uniqueName = `${Date.now()}-${req.file.originalname}`;
+    //   const filePath = path.join(uploadDir, uniqueName);
+
+    //   fs.writeFileSync(filePath, req.file.buffer);
+
+    //   uploadedFileData = {
+    //     filename: uniqueName,
+    //     originalName: req.file.originalname,
+    //     mimeType: req.file.mimetype,
+    //     size: req.file.size,
+    //     url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+    //   };
+    // }
+
     let uploadedFileData = null;
 
-    if (req.file) {
-      const uploadDir =
-        process.env.NODE_ENV === 'production'
-          ? '/tmp/bookings'
-          : path.join(__dirname, '..', 'uploads', 'bookings');
+if (req.file) {
+  uploadedFileData = {
+    filename: req.file.filename,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+    url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
+  };
 
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const uniqueName = `${Date.now()}-${req.file.originalname}`;
-      const filePath = path.join(uploadDir, uniqueName);
-
-      fs.writeFileSync(filePath, req.file.buffer);
-
-      uploadedFileData = {
-        filename: uniqueName,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
-      };
-    }
+  console.log('Uploaded File:', uploadedFileData);
+}
 
     const {
       tutorId,
@@ -326,63 +187,15 @@ if (!tutor || tutor.role !== 'tutor') {
   return res.status(404).json({ message: 'Tutor not found' });
 }
 
-// // derive type
-// let type = tutor.category;
-
-// // fallback (important)
-// if (!type || type === 'others') {
-//   type = detectCategory(tutor.courseTitle || '');
-// }
-
-// // normalize english → exam
-// if (type === 'english') {
-//   type = 'exam';
-// }
-
-// // 🔥 ALWAYS derive from booking context (not DB, not frontend type)
-// let type = detectCategory(courseTitle || tutor.courseTitle || '');
 
 
 // 🧠 SINGLE SOURCE OF TRUTH
-// let type =
-//   tutor.category && tutor.category !== 'others'
-//     ? tutor.category
-//     : detectCategory(tutor.courseTitle || courseTitle || '');
 
 let type = detectCategory(courseTitle || tutor.courseTitle || '');
 
-// normalize english → exam
-// if (type === 'english') {
-//   type = 'exam';
-// }
-
-
 if (type === 'english') type = 'exam';
 
-    // 🎯 TYPE-BASED VALIDATION
-// if (type === 'academic') {
-//   if (!courseTitle || !courseDetails || !goal) {
-//     return res.status(400).json({
-//       message: 'Academic booking requires courseTitle, courseDetails and goal',
-//     });
-//   }
-// }
-
-// if (type === 'consultant') {
-//   if (!goal) {
-//     return res.status(400).json({
-//       message: 'Consultant booking requires session goal',
-//     });
-//   }
-// }
-
-// if (type === 'exam') {
-//   if (!courseTitle) {
-//     return res.status(400).json({
-//       message: 'Exam booking requires courseTitle',
-//     });
-//   }
-// }
+    
 
 if (type === 'academic') {
   const hasAnyAcademicData =
@@ -412,21 +225,12 @@ if (type === 'exam') {
   }
 }
 
-    // const tutor = await User.findById(tutorId);
-    // if (!tutor || tutor.role !== 'tutor') {
-    //   return res.status(404).json({ message: 'Tutor not found' });
-    // }
-
-    
-    // 🔹 Handle English Proficiency Group Session
-    // if (type === 'exam' && courseTitle === 'English Proficiency')
-       
     if (
   type === 'exam' &&
   courseTitle &&
   courseTitle.toLowerCase().includes('english proficiency')
 ){
-      const GROUP_AMOUNT = 140000;
+      const GROUP_AMOUNT = 100000;
 
       // 1️⃣ Find existing active group for THIS tutor
       let booking = await Booking.findOne({
@@ -2315,268 +2119,7 @@ const rateBooking = async (req, res) => {
   }
 };
 
-// const bookTutor = async (req, res) => {
-//   try {
-//     const studentId = req.user._id;
-//     const {
-//       tutorId,
-//       courseTitle,
-//       scheduledDate,
-//       sessionType = '1on1',
-//       duration = 60,
-//       paymentMethod = 'wallet',
-//       redirectUrl,
-//     } = req.body;
 
-//     if (!tutorId || !scheduledDate || !courseTitle) {
-//       return res.status(400).json({ message: 'Missing required fields' });
-//     }
-
-//     const tutor = await User.findById(tutorId);
-//     if (!tutor || tutor.role !== 'tutor') {
-//       return res.status(404).json({ message: 'Tutor not found' });
-//     }
-
-//     // Handle file upload if present
-//     let uploadedFileData = null;
-//     if (req.file) {
-//       const uploadDir =
-//         process.env.NODE_ENV === 'production'
-//           ? '/tmp/bookings'
-//           : path.join(__dirname, '..', 'uploads', 'bookings');
-
-//       if (!fs.existsSync(uploadDir))
-//         fs.mkdirSync(uploadDir, { recursive: true });
-
-//       const uniqueName = `${Date.now()}-${req.file.originalname}`;
-//       const filePath = path.join(uploadDir, uniqueName);
-//       fs.writeFileSync(filePath, req.file.buffer);
-
-//       uploadedFileData = {
-//         filename: uniqueName,
-//         originalName: req.file.originalname,
-//         mimeType: req.file.mimetype,
-//         size: req.file.size,
-//         url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
-//       };
-//     }
-
-//     // 🔹 English Proficiency group session
-//     if (courseTitle === 'English Proficiency') {
-//       const GROUP_AMOUNT = 140000;
-
-//       // Check for existing group session
-//       let booking = await Booking.findOne({
-//         tutorId,
-//         courseTitle,
-//         sessionType: 'group',
-//         status: { $in: ['pending', 'confirmed'] },
-//       });
-
-//       if (!booking) {
-//         booking = await Booking.create({
-//           tutorId,
-//           courseTitle,
-//           sessionType: 'group',
-//           groupStudents: [studentId],
-//           scheduledDate: new Date(scheduledDate),
-//           duration: 42 * 24 * 60, // 6 weeks in minutes
-//           amount: GROUP_AMOUNT,
-//           paymentStatus: 'pending',
-//           status: 'pending',
-//           uploadedFile: uploadedFileData,
-//         });
-//       }
-
-//       if (booking.groupStudents.includes(studentId)) {
-//         return res
-//           .status(400)
-//           .json({ message: 'You have already joined this session' });
-//       }
-
-//       if (paymentMethod === 'wallet') {
-//         const student = await User.findById(studentId);
-//         if (!student || student.walletBalance < GROUP_AMOUNT) {
-//           return res
-//             .status(402)
-//             .json({ message: 'Insufficient wallet balance for group session' });
-//         }
-
-//         const balanceBefore = student.walletBalance;
-//         student.walletBalance -= GROUP_AMOUNT;
-//         await student.save();
-
-//         booking.groupStudents.push(studentId);
-//         booking.paymentStatus = 'paid';
-//         await booking.save();
-
-//         await Wallet.create({
-//           userId: student._id,
-//           type: 'debit',
-//           amount: GROUP_AMOUNT,
-//           description: `Booking for English Proficiency with ${tutor.name}`,
-//           category: 'booking',
-//           balanceBefore,
-//           balanceAfter: student.walletBalance,
-//         });
-
-//         return res.status(200).json({
-//           success: true,
-//           message: 'Joined English Proficiency session',
-//           booking,
-//           walletBalance: student.walletBalance,
-//         });
-//       }
-
-//       if (paymentMethod === 'paystack') {
-//         const reference = paystackService.generateReference();
-//         const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-
-//         const paymentData = await paystackService.initializeTransaction({
-//           email: req.user.email,
-//           amount: GROUP_AMOUNT,
-//           reference,
-//           callback_url: callbackUrl,
-//           metadata: {
-//             studentId,
-//             tutorId,
-//             courseTitle,
-//             scheduledDate,
-//             duration: 42 * 24 * 60,
-//             sessionType: 'group',
-//             amount: GROUP_AMOUNT,
-//             redirectUrl,
-//             isEnglishGroup: true,
-//             uploadedFile: uploadedFileData,
-//           },
-//         });
-
-//         if (!paymentData.success)
-//           return res.status(400).json({ message: paymentData.message });
-
-//         return res.status(200).json({
-//           success: true,
-//           message: 'Complete payment to join English Proficiency session',
-//           authorization_url: paymentData.data.data.authorization_url,
-//           reference,
-//         });
-//       }
-
-//       return res.status(400).json({ message: 'Invalid payment method' });
-//     }
-
-//     // 🔹 1on1 sessions
-//     const amount =
-//       tutor.fees?.totalFee ??
-//       (tutor.fees?.tutorFee || 0) + (tutor.fees?.adminFee || 0);
-
-//     if (!amount || amount <= 0) {
-//       return res.status(400).json({ message: 'Invalid tutor fee' });
-//     }
-
-//     const requestedStart = new Date(scheduledDate);
-//     const requestedEnd = new Date(requestedStart.getTime() + duration * 60000);
-
-//     const collides = await Booking.exists({
-//       tutorId,
-//       status: { $in: ['pending', 'approved'] },
-//       $expr: {
-//         $and: [
-//           { $lt: ['$scheduledDate', requestedEnd] },
-//           {
-//             $gt: [
-//               { $add: ['$scheduledDate', { $multiply: ['$duration', 60000] }] },
-//               requestedStart,
-//             ],
-//           },
-//         ],
-//       },
-//     });
-
-//     if (collides)
-//       return res.status(400).json({ message: 'Requested slot already booked' });
-
-//     if (paymentMethod === 'wallet') {
-//       const student = await User.findById(studentId);
-//       if (!student || student.walletBalance < amount) {
-//         return res.status(402).json({ message: 'Insufficient wallet balance' });
-//       }
-
-//       const balanceBefore = student.walletBalance;
-//       student.walletBalance -= amount;
-//       await student.save();
-
-//       const booking = await Booking.create({
-//         studentId,
-//         tutorId,
-//         courseTitle,
-//         scheduledDate: requestedStart,
-//         duration,
-//         amount,
-//         sessionType,
-//         paymentMethod: 'wallet',
-//         status: 'pending',
-//         paymentStatus: 'paid',
-//         uploadedFile: uploadedFileData,
-//       });
-
-//       await Wallet.create({
-//         userId: student._id,
-//         type: 'debit',
-//         amount,
-//         description: `Booking with tutor ${tutor.name} for ${courseTitle}`,
-//         category: 'booking',
-//         balanceBefore,
-//         balanceAfter: student.walletBalance,
-//       });
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Booking created. Awaiting admin approval',
-//         booking,
-//         walletBalance: student.walletBalance,
-//       });
-//     }
-
-//     if (paymentMethod === 'paystack') {
-//       const reference = paystackService.generateReference();
-//       const callbackUrl = `${process.env.BACKEND_URL}/bookings/verify/${reference}`;
-
-//       const paymentData = await paystackService.initializeTransaction({
-//         email: req.user.email,
-//         amount,
-//         reference,
-//         callback_url: callbackUrl,
-//         metadata: {
-//           studentId,
-//           tutorId,
-//           courseTitle,
-//           scheduledDate,
-//           duration,
-//           sessionType,
-//           amount,
-//           redirectUrl,
-//           uploadedFile: uploadedFileData,
-//         },
-//       });
-
-//       if (!paymentData.success)
-//         return res.status(400).json({ message: paymentData.message });
-
-//       return res.status(200).json({
-//         success: true,
-//         message: 'Complete payment to finish booking',
-//         authorization_url: paymentData.data.data.authorization_url,
-//         reference,
-//       });
-//     }
-
-//     return res.status(400).json({ message: 'Invalid payment method' });
-//   } catch (err) {
-//     console.error('bookTutor error:', err);
-//     res.status(500).json({ message: err.message });
-//   }
-// };
 
 module.exports = {
   getTutorAvailability,

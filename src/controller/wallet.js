@@ -5,27 +5,64 @@ const paystackService = require('../services/paystackService');
 const { formatUser } = require('../utils/formatDetails');
 
 // Get wallet balance and transactions
+// const getWalletBalance = async (req, res) => {
+//   try {
+//     const id = req.user._id;
+//     const { page = 1, limit = 20 } = req.query;
+
+//     const user = await User.findById(id).select('walletBalance');
+
+//     const transactions = await Wallet.find({ userId: id })
+//       .populate('adminId', 'name email')
+//       .sort({ createdAt: -1 });
+//     // .limit(limit * 1)
+//     // .skip((page - 1) * limit);
+
+//     const total = await Wallet.countDocuments({ userId: id });
+
+//     res.json({
+//       walletBalance: user.walletBalance,
+//       transactions,
+//       // totalPages: Math.ceil(total / limit),
+//       // currentPage: page,
+//       total,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 const getWalletBalance = async (req, res) => {
   try {
-    const id = req.user._id;
-    const { page = 1, limit = 20 } = req.query;
+    const userId = req.user._id;
 
-    const user = await User.findById(id).select('walletBalance');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
-    const transactions = await Wallet.find({ userId: id })
-      .populate('adminId', 'name email')
-      .sort({ createdAt: -1 });
-    // .limit(limit * 1)
-    // .skip((page - 1) * limit);
+    // Run in parallel (faster)
+    const [user, transactions, total] = await Promise.all([
+      User.findById(userId).select('walletBalance'),
+      
+      Wallet.find({ userId })
+        .populate('adminId', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
 
-    const total = await Wallet.countDocuments({ userId: id });
+      Wallet.countDocuments({ userId }),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     res.json({
       walletBalance: user.walletBalance,
       transactions,
-      // totalPages: Math.ceil(total / limit),
-      // currentPage: page,
       total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
