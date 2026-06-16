@@ -85,14 +85,28 @@ const getTutorAvailability = async (req, res) => {
         status: { $in: ['pending', 'confirmed'] },
       });
 
+      // QUICK FIX: shift all slots back by 1 hour
+const adjustedSlots = slots.map((s) => ({
+  start: new Date(s.start.getTime() - 60 * 60 * 1000),
+  end: new Date(s.end.getTime() - 60 * 60 * 1000),
+}));
+
       // filter out slots that overlap existing bookings
-      const freeSlots = slots.filter((slot) => {
-        return !bookingsThatDay.some((b) => {
-          const bStart = new Date(b.scheduledDate);
-          const bEnd = new Date(bStart.getTime() + b.duration * 60000);
-          return isOverlap(slot.start, slot.end, bStart, bEnd);
-        });
-      });
+      // const freeSlots = slots.filter((slot) => {
+      //   return !bookingsThatDay.some((b) => {
+      //     const bStart = new Date(b.scheduledDate);
+      //     const bEnd = new Date(bStart.getTime() + b.duration * 60000);
+      //     return isOverlap(slot.start, slot.end, bStart, bEnd);
+      //   });
+      // });
+
+      const freeSlots = adjustedSlots.filter((slot) => {
+  return !bookingsThatDay.some((b) => {
+    const bStart = new Date(b.scheduledDate);
+    const bEnd = new Date(bStart.getTime() + b.duration * 60000);
+    return isOverlap(slot.start, slot.end, bStart, bEnd);
+  });
+});
 
       if (freeSlots.length) {
         result.push({
@@ -1455,7 +1469,8 @@ const getBookingDetails = async (req, res) => {
           originalName: booking.uploadedFile.originalName,
           mimeType: booking.uploadedFile.mimeType,
           size: booking.uploadedFile.size,
-          url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+          // url: `${req.protocol}://${req.get('host')}/bookings/file/${booking.uploadedFile.filename}`,
+          url: `${process.env.BACKEND_URL}/bookings/file/${booking.uploadedFile.filename}`,
         }
       : null;
 
@@ -1557,7 +1572,8 @@ const getBookingDetails = async (req, res) => {
               originalName: item.uploadedFile.originalName,
               mimeType: item.uploadedFile.mimeType,
               size: item.uploadedFile.size,
-              url: `${req.protocol}://${req.get('host')}/bookings/file/${item.uploadedFile.filename}`,
+              // url: `${req.protocol}://${req.get('host')}/bookings/file/${item.uploadedFile.filename}`,
+              url: `${process.env.BACKEND_URL}/bookings/file/${booking.uploadedFile.filename}`,
             }
           : null,
       }));
@@ -1576,14 +1592,22 @@ const getStudentBookings = async (req, res) => {
   try {
     const studentId = req.user._id;
 
+    // const bookings = await Booking.find({
+    //   studentId,
+    //   adminConfirmed: true, // ✅ approved by admin
+    //   status: 'confirmed', // ✅ confirmed bookings only
+    //   scheduledDate: { $gte: new Date() }, // ✅ only future/upcoming sessions
+    // })
+    //   .populate('tutorId', 'name email avatar')
+    //   .sort({ scheduledDate: 1 }); // earliest first
+
     const bookings = await Booking.find({
-      studentId,
-      adminConfirmed: true, // ✅ approved by admin
-      status: 'confirmed', // ✅ confirmed bookings only
-      scheduledDate: { $gte: new Date() }, // ✅ only future/upcoming sessions
-    })
-      .populate('tutorId', 'name email avatar')
-      .sort({ scheduledDate: 1 }); // earliest first
+  studentId,
+  adminConfirmed: true,
+  status: { $in: ['confirmed', 'completed'] },
+})
+  .populate('tutorId', 'name email avatar')
+  .sort({ scheduledDate: 1 });
 
     res.json({ success: true, bookings });
   } catch (err) {
