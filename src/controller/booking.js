@@ -8,7 +8,6 @@ const Session = require('../models/session');
 const { isOverlap, buildSlotsForDate } = require('../utils/bookingUtils');
 const paystackService = require('../services/paystackService');
 const NotificationService = require('../services/notificationService');
-
 const { computeShares } = require('../utils/payment');
 const { sendEmail } = require('../utils/email');
 const { sendPushNotification } = require('../services/pushService');
@@ -21,6 +20,7 @@ function normalize(text = '') {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
 
 function detectCategory(courseTitle = '') {
   const title = normalize(courseTitle);
@@ -48,7 +48,6 @@ function detectCategory(courseTitle = '') {
   // ✅ RULE 3: EVERYTHING ELSE = academic (your requirement)
   return 'academic';
 }
-
 
 const getTutorAvailability = async (req, res) => {
   try {
@@ -126,9 +125,6 @@ const adjustedSlots = slots.map((s) => ({
     res.status(500).json({ message: error.message });
   }
 };
-
-
-
 
 // bookTutor with file upload handling
 const bookTutor = async (req, res) => {
@@ -2070,6 +2066,8 @@ const approveBooking = async (req, res) => {
   }
 };
 
+
+
 const getTodayClassesForTutor = async (req, res) => {
   try {
     const tutorId = req.user._id;
@@ -2142,8 +2140,6 @@ const rateBooking = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-
 
 module.exports = {
   getTutorAvailability,

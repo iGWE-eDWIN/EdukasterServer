@@ -1,4 +1,3 @@
-// controllers/sessions.js
 const mongoose = require('mongoose');
 const Booking = require('../models/booking');
 const Session = require('../models/session');
@@ -240,14 +239,38 @@ const completeBooking = async (req, res) => {
     booking.completedAt = new Date();
     await booking.save({ session });
 
+    // if (!isGroup) {
+    //   const balanceBefore = tutor.walletBalance || 0;
+
+    //   tutor.walletBalance = balanceBefore + tutorShare;
+    //   tutor.totalEarnings = (tutor.totalEarnings || 0) + tutorShare;
+
+    //   await tutor.save({ session });
+    // }
+
     if (!isGroup) {
-      const balanceBefore = tutor.walletBalance || 0;
+  const balanceBefore = tutor.walletBalance || 0;
 
-      tutor.walletBalance = balanceBefore + tutorShare;
-      tutor.totalEarnings = (tutor.totalEarnings || 0) + tutorShare;
+  tutor.walletBalance = balanceBefore + tutorShare;
+  tutor.totalEarnings = (tutor.totalEarnings || 0) + tutorShare;
 
-      await tutor.save({ session });
-    }
+  await tutor.save({ session });
+
+  await Wallet.create(
+    [
+      {
+        userId: tutor._id,
+        type: 'credit',
+        amount: tutorShare,
+        description: `Session completed - ${booking.courseTitle}`,
+        category: 'earning',
+        balanceBefore,
+        balanceAfter: tutor.walletBalance,
+      },
+    ],
+    { session }
+  );
+}
 
     await session.commitTransaction();
     session.endSession();
