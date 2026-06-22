@@ -30,6 +30,7 @@ walletSchema = new Schema(
         'subscription',
         'admin_credit',
         'refund',
+         'earning',
         'payout', // 👈 ADD THIS
       ],
       required: true,
