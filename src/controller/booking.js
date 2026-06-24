@@ -1737,7 +1737,6 @@ const getTodayClassesForTutor = async (req, res) => {
     const tutorId = req.user._id;
     
     // ✅ FIX: Get today's date in the correct timezone
-    // Use the server's timezone or specify Africa/Lagos (West African Time)
     const now = new Date();
     
     // Create date objects for today in the local timezone
@@ -1773,15 +1772,14 @@ const getTodayClassesForTutor = async (req, res) => {
       return {
         _id: b._id,
         student: b.studentId?.name || 'Unknown Student',
-        // ✅ Use local date formatting
         date: date.toLocaleDateString('en-CA', {
-          timeZone: 'Africa/Lagos' // or your local timezone
+          timeZone: 'Africa/Lagos'
         }),
         time: date.toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
-          hour12: false,
-          timeZone: 'Africa/Lagos' // or your local timezone
+          hour12: true, // ✅ CHANGE: This enables AM/PM
+          timeZone: 'Africa/Lagos'
         }),
         desc: b.courseTitle || '',
         avatar: b.studentId?.avatar?.data && b.studentId?.avatar?.contentType
@@ -1789,7 +1787,6 @@ const getTodayClassesForTutor = async (req, res) => {
               b.studentId.avatar.contentType
             };base64,${b.studentId.avatar.data.toString('base64')}`
           : null,
-        // Include raw date for debugging
         rawDate: date.toISOString(),
       };
     });
