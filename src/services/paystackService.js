@@ -112,7 +112,7 @@ class PaystackService {
           type: 'nuban',
           name: data.name,
           account_number: data.accountNumber,
-          bank_code: data.bankCode,
+          bank_code: bankCode,
           currency: 'NGN',
         },
         { headers: this.getHeaders() }
