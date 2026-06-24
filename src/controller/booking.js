@@ -1690,43 +1690,115 @@ const approveBooking = async (req, res) => {
 
 
 
+// const getTodayClassesForTutor = async (req, res) => {
+//   try {
+//     const tutorId = req.user._id;
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(today.getDate() + 1);
+
+//     const bookings = await Booking.find({
+//       tutorId,
+//       adminConfirmed: true,
+//       status: 'confirmed',
+//       scheduledDate: { $gte: today, $lt: tomorrow },
+//     })
+//       .populate('studentId', 'name email avatar')
+//       .sort({ scheduledDate: 1 });
+
+//     const formatted = bookings.map((b) => ({
+//       _id: b._id,
+//       student: b.studentId?.name || 'Unknown Student',
+//       date: new Date(b.scheduledDate).toLocaleDateString('en-CA'),
+//       time: new Date(b.scheduledDate).toLocaleTimeString([], {
+//         hour: '2-digit',
+//         minute: '2-digit',
+//       }),
+//       desc: b.courseTitle || '',
+//       avatar:
+//         b.studentId?.avatar?.data && b.studentId?.avatar?.contentType
+//           ? `data:${
+//               b.studentId.avatar.contentType
+//             };base64,${b.studentId.avatar.data.toString('base64')}`
+//           : null,
+//     }));
+
+//     res.json({ success: true, classes: formatted });
+//   } catch (err) {
+//     console.error('getTodayClassesForTutor error:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+
 const getTodayClassesForTutor = async (req, res) => {
   try {
     const tutorId = req.user._id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    
+    // ✅ FIX: Get today's date in the correct timezone
+    // Use the server's timezone or specify Africa/Lagos (West African Time)
+    const now = new Date();
+    
+    // Create date objects for today in the local timezone
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    console.log('📅 Today range:', {
+      start: todayStart.toISOString(),
+      end: todayEnd.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
 
+    // Query using the local timezone range
     const bookings = await Booking.find({
       tutorId,
       adminConfirmed: true,
       status: 'confirmed',
-      scheduledDate: { $gte: today, $lt: tomorrow },
+      scheduledDate: { 
+        $gte: todayStart, 
+        $lte: todayEnd 
+      },
     })
       .populate('studentId', 'name email avatar')
       .sort({ scheduledDate: 1 });
 
-    const formatted = bookings.map((b) => ({
-      _id: b._id,
-      student: b.studentId?.name || 'Unknown Student',
-      date: new Date(b.scheduledDate).toLocaleDateString('en-CA'),
-      time: new Date(b.scheduledDate).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      desc: b.courseTitle || '',
-      avatar:
-        b.studentId?.avatar?.data && b.studentId?.avatar?.contentType
+    // Format the bookings with proper timezone display
+    const formatted = bookings.map((b) => {
+      const date = new Date(b.scheduledDate);
+      
+      return {
+        _id: b._id,
+        student: b.studentId?.name || 'Unknown Student',
+        // ✅ Use local date formatting
+        date: date.toLocaleDateString('en-CA', {
+          timeZone: 'Africa/Lagos' // or your local timezone
+        }),
+        time: date.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Africa/Lagos' // or your local timezone
+        }),
+        desc: b.courseTitle || '',
+        avatar: b.studentId?.avatar?.data && b.studentId?.avatar?.contentType
           ? `data:${
               b.studentId.avatar.contentType
             };base64,${b.studentId.avatar.data.toString('base64')}`
           : null,
-    }));
+        // Include raw date for debugging
+        rawDate: date.toISOString(),
+      };
+    });
+
+    console.log(`✅ Found ${formatted.length} classes for today`);
 
     res.json({ success: true, classes: formatted });
   } catch (err) {
-    console.error('getTodayClassesForTutor error:', err);
+    console.error('❌ getTodayClassesForTutor error:', err);
     res.status(500).json({ message: err.message });
   }
 };
