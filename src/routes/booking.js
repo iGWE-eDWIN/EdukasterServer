@@ -67,4 +67,26 @@ router.get(
   getTodayClassesForTutor,
 );
 
+
+// ✅ SERVE AVATAR IMAGES
+router.get('/users/avatar/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const User = require('../models/user'); // Make sure to import User model
+    
+    const user = await User.findById(userId).select('avatar');
+    
+    if (!user || !user.avatar || !user.avatar.data) {
+      return res.status(404).json({ error: 'Avatar not found' });
+    }
+    
+    // Set content type and send image data
+    res.set('Content-Type', user.avatar.contentType);
+    res.send(user.avatar.data);
+  } catch (error) {
+    console.error('Error serving avatar:', error);
+    res.status(500).json({ error: 'Failed to serve avatar' });
+  }
+});
+
 module.exports = router;
