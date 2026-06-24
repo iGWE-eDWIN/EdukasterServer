@@ -620,8 +620,17 @@ const tutorWithdrawl = async (req, res) => {
       });
     }
 
-    const recipientCode = recipient.data.recipient_code;
+    // ✅ FIXED: Access recipient_code from recipient.data
+    const recipientCode = recipient.data?.recipient_code;
     console.log('Recipient code created:', recipientCode);
+
+    if (!recipientCode) {
+      console.error('Recipient code is undefined. Full recipient object:', JSON.stringify(recipient));
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get recipient code from Paystack'
+      });
+    }
 
     // 3️⃣ Initiate transfer
     console.log('Initiating transfer with:', {
@@ -658,7 +667,7 @@ const tutorWithdrawl = async (req, res) => {
       category: 'payout',
       balanceBefore: balanceBefore,
       balanceAfter: user.walletBalance,
-      paystackReference: transfer.data.reference,
+      paystackReference: transfer.data?.reference,
       metadata: {
         recipientCode: recipientCode,
         bankCode: bankCode,
