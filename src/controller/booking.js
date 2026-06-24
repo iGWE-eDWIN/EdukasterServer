@@ -132,64 +132,116 @@ const bookTutor = async (req, res) => {
     const studentId = req.user._id;
     let uploadedFileData = null;
 
-// if (req.file) {
-//   uploadedFileData = {
-//     filename: req.file.filename,
-//     originalName: req.file.originalname,
-//     mimeType: req.file.mimetype,
-//     size: req.file.size,
-//     url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
-//   };
-
-//   console.log('Uploaded File:', uploadedFileData);
-// }
-
- // ✅ FIX: Handle file upload properly
+ // ✅ FIX: Handle file upload with proper disk storage
     if (req.file) {
-      console.log('File received:', {
+      console.log('📁 File received:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
+        path: req.file.path,
+        destination: req.file.destination,
       });
 
-      // Ensure the upload directory exists
+      // Determine upload directory
       const uploadDir = process.env.NODE_ENV === 'production'
         ? '/tmp/bookings'
         : path.join(__dirname, '..', 'uploads', 'bookings');
 
+      console.log('📁 Upload directory:', uploadDir);
+
+      // Ensure directory exists
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('📁 Created upload directory:', uploadDir);
       }
 
-      // If multer saved the file, use req.file.filename
-      // If multer didn't save it, save it manually
-      if (req.file.filename) {
-        // Multer saved it with a filename
-        uploadedFileData = {
-          filename: req.file.filename,
-          originalName: req.file.originalname,
-          mimeType: req.file.mimetype,
-          size: req.file.size,
-          url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
-        };
-      } else if (req.file.buffer) {
-        // Manual save (if multer didn't save)
-        const uniqueName = `${Date.now()}-${req.file.originalname}`;
-        const filePath = path.join(uploadDir, uniqueName);
-        fs.writeFileSync(filePath, req.file.buffer);
-        
-        uploadedFileData = {
-          filename: uniqueName,
-          originalName: req.file.originalname,
-          mimeType: req.file.mimetype,
-          size: req.file.size,
-          url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
-        };
+      // ✅ Get the filename (multer saves it with diskStorage)
+      let savedFilename = req.file.filename;
+      let savedPath = req.file.path || path.join(uploadDir, savedFilename);
+
+      // If multer didn't save the file (buffer mode), save it manually
+      if (!savedFilename && req.file.buffer) {
+        savedFilename = `${Date.now()}-${req.file.originalname}`;
+        savedPath = path.join(uploadDir, savedFilename);
+        fs.writeFileSync(savedPath, req.file.buffer);
+        console.log('📁 Manually saved file:', savedPath);
       }
 
-      console.log('Uploaded File Data:', uploadedFileData);
+      // Verify the file was saved
+      if (savedFilename && fs.existsSync(savedPath)) {
+        console.log('✅ File verified at:', savedPath);
+        const stats = fs.statSync(savedPath);
+        console.log('📁 File size:', stats.size, 'bytes');
+
+        // Build the URL
+        const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+        const fileUrl = `${baseUrl}/bookings/file/${savedFilename}`;
+        console.log('✅ File URL:', fileUrl);
+
+        uploadedFileData = {
+          filename: savedFilename,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          size: req.file.size || stats.size,
+          url: fileUrl,
+        };
+      } else {
+        console.error('❌ File not saved properly. Filename:', savedFilename, 'Path:', savedPath);
+      }
+
+      console.log('📁 Uploaded File Data:', uploadedFileData);
     }
+
+//   console.log('Uploaded File:', uploadedFileData);
+// }
+
+//  // ✅ FIX: Handle file upload properly
+//     if (req.file) {
+//       console.log('File received:', {
+//         filename: req.file.filename,
+//         originalname: req.file.originalname,
+//         mimetype: req.file.mimetype,
+//         size: req.file.size,
+//       });
+
+//       // Ensure the upload directory exists
+//       const uploadDir = process.env.NODE_ENV === 'production'
+//         ? '/tmp/bookings'
+//         : path.join(__dirname, '..', 'uploads', 'bookings');
+
+//       if (!fs.existsSync(uploadDir)) {
+//         fs.mkdirSync(uploadDir, { recursive: true });
+//       }
+
+//       // If multer saved the file, use req.file.filename
+//       // If multer didn't save it, save it manually
+//       if (req.file.filename) {
+//         // Multer saved it with a filename
+//         uploadedFileData = {
+//           filename: req.file.filename,
+//           originalName: req.file.originalname,
+//           mimeType: req.file.mimetype,
+//           size: req.file.size,
+//           url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
+//         };
+//       } else if (req.file.buffer) {
+//         // Manual save (if multer didn't save)
+//         const uniqueName = `${Date.now()}-${req.file.originalname}`;
+//         const filePath = path.join(uploadDir, uniqueName);
+//         fs.writeFileSync(filePath, req.file.buffer);
+        
+//         uploadedFileData = {
+//           filename: uniqueName,
+//           originalName: req.file.originalname,
+//           mimeType: req.file.mimetype,
+//           size: req.file.size,
+//           url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+//         };
+//       }
+
+//       console.log('Uploaded File Data:', uploadedFileData);
+//     }
 
     const {
       tutorId,
@@ -909,6 +961,181 @@ const getTutorBookings = async (req, res) => {
   }
 };
 
+const getBookingDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      $or: [{ tutorId: userId }, { studentId: userId }],
+    })
+      .populate('studentId', 'name email avatar about goal')
+      .populate('tutorId', 'name email avatar fees totalEarnings')
+      .populate({
+        path: 'groupStudents.student',
+        select: 'name email avatar about goal',
+      });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found or unauthorized' });
+    }
+
+    console.log('📋 Booking data:', {
+      id: booking._id,
+      hasUploadedFile: !!booking.uploadedFile,
+      uploadedFile: booking.uploadedFile,
+      filename: booking.uploadedFile?.filename,
+      url: booking.uploadedFile?.url,
+      status: booking.status,
+      completedAt: booking.completedAt,
+    });
+
+    // ✅ Get base URL - FIXED for Heroku
+    let baseUrl = process.env.BACKEND_URL;
+    if (!baseUrl || baseUrl === 'backendurl' || baseUrl.includes('backendurl')) {
+      const host = req.get('host');
+      if (host && host.includes('herokuapp.com')) {
+        baseUrl = `https://${host}`;
+      } else {
+        const protocol = req.protocol === 'https' ? 'https' : 'http';
+        baseUrl = `${protocol}://${host}`;
+      }
+    }
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    console.log('✅ Using base URL:', baseUrl);
+
+    // ✅ Build file URL - use the stored filename from the database
+    let studentFile = null;
+    if (booking.uploadedFile && booking.uploadedFile.filename) {
+      studentFile = {
+        originalName: booking.uploadedFile.originalName || 'file',
+        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
+        size: booking.uploadedFile.size || 0,
+        url: `${baseUrl}/bookings/file/${booking.uploadedFile.filename}`,
+      };
+      console.log('✅ Student file URL:', studentFile.url);
+    } else if (booking.uploadedFile && booking.uploadedFile.url) {
+      // If URL was saved directly
+      studentFile = {
+        originalName: booking.uploadedFile.originalName || 'file',
+        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
+        size: booking.uploadedFile.size || 0,
+        url: booking.uploadedFile.url,
+      };
+    }
+
+    // ✅ Helper to get avatar URL
+    const getAvatarUrl = (user) => {
+      if (!user) return null;
+      if (user.avatar && user.avatar.data) {
+        return `${baseUrl}/users/avatar/${user._id}`;
+      }
+      return null;
+    };
+
+    // ✅ FIXED: Add canConfirmCompletion
+    const canConfirmCompletion = booking.status === 'confirmed' && !booking.completedAt;
+    console.log('✅ Can confirm completion:', canConfirmCompletion);
+
+    const responseData = {
+      _id: booking._id,
+      courseTitle: booking.courseTitle,
+      scheduledDate: booking.scheduledDate,
+      duration: booking.duration,
+      amount: booking.amount,
+      sessionType: booking.sessionType,
+      paymentStatus: booking.paymentStatus,
+      status: booking.status,
+      adminConfirmed: booking.adminConfirmed,
+      meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
+      createdAt: booking.createdAt,
+      completedAt: booking.completedAt,
+      canConfirmCompletion,
+      studentFile: studentFile,
+
+      student: booking.studentId ? {
+        _id: booking.studentId._id,
+        name: booking.studentId.name,
+        email: booking.studentId.email,
+        about: booking.studentId.about,
+        goal: booking.studentId.goal,
+        avatar: getAvatarUrl(booking.studentId),
+      } : null,
+
+      tutor: booking.tutorId ? {
+        _id: booking.tutorId._id,
+        name: booking.tutorId.name,
+        email: booking.tutorId.email,
+        totalEarnings: booking.tutorId.totalEarnings || 0,
+        avatar: getAvatarUrl(booking.tutorId),
+      } : null,
+    };
+
+    // ✅ 1-on-1 Booking Response
+    if (booking.sessionType !== 'group') {
+      responseData.student = booking.studentId ? {
+        _id: booking.studentId._id,
+        name: booking.studentId.name,
+        email: booking.studentId.email,
+        about: booking.studentId.about,
+        goal: booking.studentId.goal,
+        avatar: getAvatarUrl(booking.studentId),
+      } : null;
+    }
+
+    // ✅ Group Booking Response
+    if (booking.sessionType === 'group') {
+      responseData.groupStudents = booking.groupStudents.map((item) => {
+        const student = item.student;
+        let uploadedFile = null;
+        
+        if (item.uploadedFile) {
+          if (item.uploadedFile.filename) {
+            uploadedFile = {
+              originalName: item.uploadedFile.originalName || 'file',
+              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
+              size: item.uploadedFile.size || 0,
+              url: `${baseUrl}/bookings/file/${item.uploadedFile.filename}`,
+            };
+          } else if (item.uploadedFile.url) {
+            uploadedFile = {
+              originalName: item.uploadedFile.originalName || 'file',
+              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
+              size: item.uploadedFile.size || 0,
+              url: item.uploadedFile.url,
+            };
+          }
+        }
+
+        return {
+          _id: student?._id,
+          name: student?.name || 'Unknown',
+          email: student?.email,
+          about: student?.about,
+          goal: student?.goal,
+          avatar: student ? getAvatarUrl(student) : null,
+          uploadedFile: uploadedFile,
+        };
+      });
+      responseData.totalStudents = booking.groupStudents.length;
+    }
+
+    console.log('✅ Response data:', {
+      hasStudentFile: !!responseData.studentFile,
+      studentFileUrl: responseData.studentFile?.url,
+      canConfirmCompletion: responseData.canConfirmCompletion,
+    });
+    
+    res.json({ success: true, booking: responseData });
+  } catch (err) {
+    console.error('❌ getBookingDetails error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // const getBookingDetails = async (req, res) => {
 //   try {
 //     const userId = req.user._id;
@@ -968,10 +1195,8 @@ const getTutorBookings = async (req, res) => {
 //       }
 //       return null;
 //     };
-
-//     // ✅ FIXED: Add canConfirmCompletion back
+//  //✅ FIXED: Add canConfirmCompletion back
 //     const canConfirmCompletion = booking.status === 'confirmed' && !booking.completedAt;
-
 //     const responseData = {
 //       _id: booking._id,
 //       courseTitle: booking.courseTitle,
@@ -984,9 +1209,8 @@ const getTutorBookings = async (req, res) => {
 //       adminConfirmed: booking.adminConfirmed,
 //       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
 //       createdAt: booking.createdAt,
-//       completedAt: booking.completedAt,
-//       canConfirmCompletion, // ✅ Added this back
-//       studentFile: studentFile,
+//  canConfirmCompletion, // ✅ Added this back
+//       studentFile: studentFile, // ✅ This will be sent to frontend
 
 //       student: booking.studentId ? {
 //         _id: booking.studentId._id,
@@ -1006,19 +1230,7 @@ const getTutorBookings = async (req, res) => {
 //       } : null,
 //     };
 
-//     // ✅ 1-on-1 Booking Response
-//     if (booking.sessionType !== 'group') {
-//       responseData.student = booking.studentId ? {
-//         _id: booking.studentId._id,
-//         name: booking.studentId.name,
-//         email: booking.studentId.email,
-//         about: booking.studentId.about,
-//         goal: booking.studentId.goal,
-//         avatar: getAvatarUrl(booking.studentId),
-//       } : null;
-//     }
-
-//     // ✅ Group Booking Response
+//     // ✅ Group Booking Response - Fix file URLs
 //     if (booking.sessionType === 'group') {
 //       responseData.groupStudents = booking.groupStudents.map((item) => {
 //         const student = item.student;
@@ -1056,7 +1268,6 @@ const getTutorBookings = async (req, res) => {
 //     }
 
 //     console.log('Response data student file:', responseData.studentFile);
-//     console.log('Can confirm completion:', canConfirmCompletion);
     
 //     res.json({ success: true, booking: responseData });
 //   } catch (err) {
@@ -1064,147 +1275,6 @@ const getTutorBookings = async (req, res) => {
 //     res.status(500).json({ message: err.message });
 //   }
 // };
-
-
-const getBookingDetails = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { bookingId } = req.params;
-
-    const booking = await Booking.findOne({
-      _id: bookingId,
-      $or: [{ tutorId: userId }, { studentId: userId }],
-    })
-      .populate('studentId', 'name email avatar about goal')
-      .populate('tutorId', 'name email avatar fees totalEarnings')
-      .populate({
-        path: 'groupStudents.student',
-        select: 'name email avatar about goal',
-      });
-
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found or unauthorized' });
-    }
-
-    console.log('Booking data:', {
-      hasUploadedFile: !!booking.uploadedFile,
-      uploadedFile: booking.uploadedFile,
-      groupStudents: booking.groupStudents?.map(g => ({
-        hasFile: !!g.uploadedFile,
-        file: g.uploadedFile,
-      })),
-    });
-
-    // ✅ Get base URL
-    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
-
-    // ✅ Build file URL - MAKE SURE filename exists
-    let studentFile = null;
-    if (booking.uploadedFile && booking.uploadedFile.filename) {
-      studentFile = {
-        originalName: booking.uploadedFile.originalName || 'file',
-        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
-        size: booking.uploadedFile.size || 0,
-        url: `${baseUrl}/bookings/file/${booking.uploadedFile.filename}`,
-      };
-    } else if (booking.uploadedFile && booking.uploadedFile.url) {
-      // If URL was saved directly
-      studentFile = {
-        originalName: booking.uploadedFile.originalName || 'file',
-        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
-        size: booking.uploadedFile.size || 0,
-        url: booking.uploadedFile.url,
-      };
-    }
-
-    // ✅ Helper to get avatar URL
-    const getAvatarUrl = (user) => {
-      if (!user) return null;
-      if (user.avatar && user.avatar.data) {
-        return `${baseUrl}/users/avatar/${user._id}`;
-      }
-      return null;
-    };
- //✅ FIXED: Add canConfirmCompletion back
-    const canConfirmCompletion = booking.status === 'confirmed' && !booking.completedAt;
-    const responseData = {
-      _id: booking._id,
-      courseTitle: booking.courseTitle,
-      scheduledDate: booking.scheduledDate,
-      duration: booking.duration,
-      amount: booking.amount,
-      sessionType: booking.sessionType,
-      paymentStatus: booking.paymentStatus,
-      status: booking.status,
-      adminConfirmed: booking.adminConfirmed,
-      meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
-      createdAt: booking.createdAt,
- canConfirmCompletion, // ✅ Added this back
-      studentFile: studentFile, // ✅ This will be sent to frontend
-
-      student: booking.studentId ? {
-        _id: booking.studentId._id,
-        name: booking.studentId.name,
-        email: booking.studentId.email,
-        about: booking.studentId.about,
-        goal: booking.studentId.goal,
-        avatar: getAvatarUrl(booking.studentId),
-      } : null,
-
-      tutor: booking.tutorId ? {
-        _id: booking.tutorId._id,
-        name: booking.tutorId.name,
-        email: booking.tutorId.email,
-        totalEarnings: booking.tutorId.totalEarnings || 0,
-        avatar: getAvatarUrl(booking.tutorId),
-      } : null,
-    };
-
-    // ✅ Group Booking Response - Fix file URLs
-    if (booking.sessionType === 'group') {
-      responseData.groupStudents = booking.groupStudents.map((item) => {
-        const student = item.student;
-        let uploadedFile = null;
-        
-        if (item.uploadedFile) {
-          if (item.uploadedFile.filename) {
-            uploadedFile = {
-              originalName: item.uploadedFile.originalName || 'file',
-              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
-              size: item.uploadedFile.size || 0,
-              url: `${baseUrl}/bookings/file/${item.uploadedFile.filename}`,
-            };
-          } else if (item.uploadedFile.url) {
-            uploadedFile = {
-              originalName: item.uploadedFile.originalName || 'file',
-              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
-              size: item.uploadedFile.size || 0,
-              url: item.uploadedFile.url,
-            };
-          }
-        }
-
-        return {
-          _id: student?._id,
-          name: student?.name || 'Unknown',
-          email: student?.email,
-          about: student?.about,
-          goal: student?.goal,
-          avatar: student ? getAvatarUrl(student) : null,
-          uploadedFile: uploadedFile,
-        };
-      });
-      responseData.totalStudents = booking.groupStudents.length;
-    }
-
-    console.log('Response data student file:', responseData.studentFile);
-    
-    res.json({ success: true, booking: responseData });
-  } catch (err) {
-    console.error('getBookingDetails error:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
 
 const getStudentBookings = async (req, res) => {
   try {
