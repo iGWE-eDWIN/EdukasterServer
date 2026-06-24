@@ -459,61 +459,192 @@ const adminFundWallet = async (req, res) => {
   }
 };
 
+// const tutorWithdrawl = async (req, res) => {
+//   try {
+//     const { amount, bankCode, accountNumber, accountName } = req.body;
+//     console.log(req.body);
+//     const userId = req.user._id;
+
+//     if (!amount || amount < 100)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Minimum withdraw amount is ₦100' });
+
+//     if (!bankCode || !accountNumber || !accountName)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Bank details are required' });
+
+//     // 1️⃣ Load user wallet balance
+//     const user = await User.findById(userId);
+//     if (!user)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: 'User not found' });
+
+//     if (user.walletBalance < amount)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Insufficient wallet balance' });
+
+//     const balanceBefore = user.walletBalance;
+
+//     // 2️⃣ Create transfer recipient on Paystack
+//     const recipient = await paystackService.createTransferRecipient({
+//       name: accountName,
+//       accountNumber,
+//       bankCode,
+//     });
+
+//     if (!recipient.success)
+//       return res
+//         .status(500)
+//         .json({ success: false, message: recipient.message });
+
+//     const recipientCode = recipient.data.recipient_code;
+
+//     // 3️⃣ Initiate transfer
+//     const transfer = await paystackService.initiateTransfer({
+//       amount,
+//       recipientCode,
+//       reason: 'Tutor wallet withdrawal',
+//     });
+
+//     if (!transfer.success)
+//       return res
+//         .status(500)
+//         .json({ success: false, message: transfer.message });
+
+//     // 4️⃣ Deduct balance and save Wallet transaction
+//     user.walletBalance -= amount;
+//     await user.save();
+
+//     const walletTx = new Wallet({
+//       userId: user._id,
+//       type: 'debit',
+//       amount,
+//       description: `Withdrawal to ${accountName}`,
+//       category: 'payout',
+//       balanceBefore,
+//       balanceAfter: user.walletBalance,
+//       paystackReference: transfer.data.reference,
+//       metadata: {
+//         recipientCode,
+//         bankCode,
+//         accountNumber,
+//         accountName,
+//       },
+//     });
+//     await walletTx.save();
+
+//     return res.json({
+//       success: true,
+//       message: 'Withdrawal initiated successfully!',
+//       data: { walletTx, transfer: transfer.data },
+//     });
+//   } catch (err) {
+//     console.error('Withdrawal error:', err);
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Withdrawal failed',
+//       error: err.message,
+//     });
+//   }
+// };
+
 const tutorWithdrawl = async (req, res) => {
   try {
     const { amount, bankCode, accountNumber, accountName } = req.body;
-    console.log(req.body);
+    console.log('=== Withdrawal Request ===');
+    console.log('Request body:', req.body);
+    console.log('Bank code type:', typeof bankCode);
+    console.log('Bank code value:', bankCode);
+    console.log('Account number:', accountNumber);
+    console.log('Account name:', accountName);
+    
     const userId = req.user._id;
 
-    if (!amount || amount < 100)
-      return res
-        .status(400)
-        .json({ success: false, message: 'Minimum withdraw amount is ₦100' });
+    if (!amount || amount < 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Minimum withdraw amount is ₦100'
+      });
+    }
 
-    if (!bankCode || !accountNumber || !accountName)
-      return res
-        .status(400)
-        .json({ success: false, message: 'Bank details are required' });
+    if (!bankCode || !accountNumber || !accountName) {
+      console.log('Missing required fields:', { bankCode, accountNumber, accountName });
+      return res.status(400).json({
+        success: false,
+        message: 'Bank details are required'
+      });
+    }
 
     // 1️⃣ Load user wallet balance
     const user = await User.findById(userId);
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
-    if (user.walletBalance < amount)
-      return res
-        .status(400)
-        .json({ success: false, message: 'Insufficient wallet balance' });
+    if (user.walletBalance < amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient wallet balance'
+      });
+    }
 
     const balanceBefore = user.walletBalance;
 
     // 2️⃣ Create transfer recipient on Paystack
-    const recipient = await paystackService.createTransferRecipient({
+    console.log('Creating Paystack recipient with:', {
       name: accountName,
-      accountNumber,
-      bankCode,
+      accountNumber: accountNumber,
+      bankCode: bankCode,
     });
 
-    if (!recipient.success)
-      return res
-        .status(500)
-        .json({ success: false, message: recipient.message });
+    const recipient = await paystackService.createTransferRecipient({
+      name: accountName,
+      accountNumber: accountNumber,
+      bankCode: bankCode,
+    });
+
+    console.log('Recipient creation result:', recipient);
+
+    if (!recipient.success) {
+      console.error('Recipient creation failed:', recipient.message);
+      return res.status(500).json({
+        success: false,
+        message: recipient.message || 'Failed to create recipient'
+      });
+    }
 
     const recipientCode = recipient.data.recipient_code;
+    console.log('Recipient code created:', recipientCode);
 
     // 3️⃣ Initiate transfer
+    console.log('Initiating transfer with:', {
+      amount: amount,
+      recipientCode: recipientCode,
+      reason: 'Tutor wallet withdrawal'
+    });
+
     const transfer = await paystackService.initiateTransfer({
-      amount,
-      recipientCode,
+      amount: amount,
+      recipientCode: recipientCode,
       reason: 'Tutor wallet withdrawal',
     });
 
-    if (!transfer.success)
-      return res
-        .status(500)
-        .json({ success: false, message: transfer.message });
+    console.log('Transfer result:', transfer);
+
+    if (!transfer.success) {
+      console.error('Transfer initiation failed:', transfer.message);
+      return res.status(500).json({
+        success: false,
+        message: transfer.message || 'Transfer initiation failed'
+      });
+    }
 
     // 4️⃣ Deduct balance and save Wallet transaction
     user.walletBalance -= amount;
@@ -522,17 +653,17 @@ const tutorWithdrawl = async (req, res) => {
     const walletTx = new Wallet({
       userId: user._id,
       type: 'debit',
-      amount,
+      amount: amount,
       description: `Withdrawal to ${accountName}`,
       category: 'payout',
-      balanceBefore,
+      balanceBefore: balanceBefore,
       balanceAfter: user.walletBalance,
       paystackReference: transfer.data.reference,
       metadata: {
-        recipientCode,
-        bankCode,
-        accountNumber,
-        accountName,
+        recipientCode: recipientCode,
+        bankCode: bankCode,
+        accountNumber: accountNumber,
+        accountName: accountName,
       },
     });
     await walletTx.save();
@@ -540,10 +671,16 @@ const tutorWithdrawl = async (req, res) => {
     return res.json({
       success: true,
       message: 'Withdrawal initiated successfully!',
-      data: { walletTx, transfer: transfer.data },
+      data: {
+        walletTx: walletTx,
+        transfer: transfer.data,
+      },
     });
   } catch (err) {
-    console.error('Withdrawal error:', err);
+    console.error('=== Withdrawal Error ===');
+    console.error('Error:', err);
+    console.error('Error stack:', err.stack);
+    
     return res.status(500).json({
       success: false,
       message: 'Withdrawal failed',
