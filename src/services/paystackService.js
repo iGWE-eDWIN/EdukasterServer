@@ -104,24 +104,48 @@ class PaystackService {
   }
 
   // 🏦 Create transfer recipient
-  async createTransferRecipient(data) {
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/transferrecipient`,
-        {
-          type: 'nuban',
-          name: data.name,
-          account_number: data.accountNumber,
-          bank_code: bankCode,
-          currency: 'NGN',
-        },
-        { headers: this.getHeaders() }
-      );
-      return this.handleResponse(response);
-    } catch (error) {
-      return this.handleError(error, 'Transfer recipient creation failed');
-    }
+  // async createTransferRecipient(data) {
+  //   try {
+  //     const response = await axios.post(
+  //       `${this.baseURL}/transferrecipient`,
+  //       {
+  //         type: 'nuban',
+  //         name: data.name,
+  //         account_number: data.accountNumber,
+  //         bank_code: bankCode,
+  //         currency: 'NGN',
+  //       },
+  //       { headers: this.getHeaders() }
+  //     );
+  //     return this.handleResponse(response);
+  //   } catch (error) {
+  //     return this.handleError(error, 'Transfer recipient creation failed');
+  //   }
+  // }
+
+
+  // 🏦 Create transfer recipient
+async createTransferRecipient(data) {
+  try {
+    console.log('Creating transfer recipient with data:', data); // Add this log
+    
+    const response = await axios.post(
+      `${this.baseURL}/transferrecipient`,
+      {
+        type: 'nuban',
+        name: data.name,
+        account_number: data.accountNumber,
+        bank_code: data.bankCode, // ← FIX: Changed from bankCode to data.bankCode
+        currency: 'NGN',
+      },
+      { headers: this.getHeaders() }
+    );
+    return this.handleResponse(response);
+  } catch (error) {
+    console.error('Paystack create recipient error:', error.response?.data || error.message); // Add this log
+    return this.handleError(error, 'Transfer recipient creation failed');
   }
+}
 
   // 💸 Initiate transfer
   async initiateTransfer(data) {
