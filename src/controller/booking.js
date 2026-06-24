@@ -132,116 +132,55 @@ const bookTutor = async (req, res) => {
     const studentId = req.user._id;
     let uploadedFileData = null;
 
- // ✅ FIX: Handle file upload with proper disk storage
+ 
+
+
+//  // ✅ FIX: Handle file upload properly
     if (req.file) {
-      console.log('📁 File received:', {
+      console.log('File received:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        path: req.file.path,
-        destination: req.file.destination,
       });
 
-      // Determine upload directory
+      // Ensure the upload directory exists
       const uploadDir = process.env.NODE_ENV === 'production'
         ? '/tmp/bookings'
         : path.join(__dirname, '..', 'uploads', 'bookings');
 
-      console.log('📁 Upload directory:', uploadDir);
-
-      // Ensure directory exists
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log('📁 Created upload directory:', uploadDir);
       }
 
-      // ✅ Get the filename (multer saves it with diskStorage)
-      let savedFilename = req.file.filename;
-      let savedPath = req.file.path || path.join(uploadDir, savedFilename);
-
-      // If multer didn't save the file (buffer mode), save it manually
-      if (!savedFilename && req.file.buffer) {
-        savedFilename = `${Date.now()}-${req.file.originalname}`;
-        savedPath = path.join(uploadDir, savedFilename);
-        fs.writeFileSync(savedPath, req.file.buffer);
-        console.log('📁 Manually saved file:', savedPath);
-      }
-
-      // Verify the file was saved
-      if (savedFilename && fs.existsSync(savedPath)) {
-        console.log('✅ File verified at:', savedPath);
-        const stats = fs.statSync(savedPath);
-        console.log('📁 File size:', stats.size, 'bytes');
-
-        // Build the URL
-        const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
-        const fileUrl = `${baseUrl}/bookings/file/${savedFilename}`;
-        console.log('✅ File URL:', fileUrl);
-
+      // If multer saved the file, use req.file.filename
+      // If multer didn't save it, save it manually
+      if (req.file.filename) {
+        // Multer saved it with a filename
         uploadedFileData = {
-          filename: savedFilename,
+          filename: req.file.filename,
           originalName: req.file.originalname,
           mimeType: req.file.mimetype,
-          size: req.file.size || stats.size,
-          url: fileUrl,
+          size: req.file.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
         };
-      } else {
-        console.error('❌ File not saved properly. Filename:', savedFilename, 'Path:', savedPath);
+      } else if (req.file.buffer) {
+        // Manual save (if multer didn't save)
+        const uniqueName = `${Date.now()}-${req.file.originalname}`;
+        const filePath = path.join(uploadDir, uniqueName);
+        fs.writeFileSync(filePath, req.file.buffer);
+        
+        uploadedFileData = {
+          filename: uniqueName,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+        };
       }
 
-      console.log('📁 Uploaded File Data:', uploadedFileData);
+      console.log('Uploaded File Data:', uploadedFileData);
     }
-
-//   console.log('Uploaded File:', uploadedFileData);
-// }
-
-//  // ✅ FIX: Handle file upload properly
-//     if (req.file) {
-//       console.log('File received:', {
-//         filename: req.file.filename,
-//         originalname: req.file.originalname,
-//         mimetype: req.file.mimetype,
-//         size: req.file.size,
-//       });
-
-//       // Ensure the upload directory exists
-//       const uploadDir = process.env.NODE_ENV === 'production'
-//         ? '/tmp/bookings'
-//         : path.join(__dirname, '..', 'uploads', 'bookings');
-
-//       if (!fs.existsSync(uploadDir)) {
-//         fs.mkdirSync(uploadDir, { recursive: true });
-//       }
-
-//       // If multer saved the file, use req.file.filename
-//       // If multer didn't save it, save it manually
-//       if (req.file.filename) {
-//         // Multer saved it with a filename
-//         uploadedFileData = {
-//           filename: req.file.filename,
-//           originalName: req.file.originalname,
-//           mimeType: req.file.mimetype,
-//           size: req.file.size,
-//           url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
-//         };
-//       } else if (req.file.buffer) {
-//         // Manual save (if multer didn't save)
-//         const uniqueName = `${Date.now()}-${req.file.originalname}`;
-//         const filePath = path.join(uploadDir, uniqueName);
-//         fs.writeFileSync(filePath, req.file.buffer);
-        
-//         uploadedFileData = {
-//           filename: uniqueName,
-//           originalName: req.file.originalname,
-//           mimeType: req.file.mimetype,
-//           size: req.file.size,
-//           url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
-//         };
-//       }
-
-//       console.log('Uploaded File Data:', uploadedFileData);
-//     }
 
     const {
       tutorId,
