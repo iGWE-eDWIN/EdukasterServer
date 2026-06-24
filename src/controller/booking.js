@@ -130,46 +130,66 @@ const adjustedSlots = slots.map((s) => ({
 const bookTutor = async (req, res) => {
   try {
     const studentId = req.user._id;
-
-    // let uploadedFileData = null;
-
-    // if (req.file) {
-    //   const uploadDir =
-    //     process.env.NODE_ENV === 'production'
-    //       ? '/tmp/bookings'
-    //       : path.join(__dirname, '..', 'uploads', 'bookings');
-
-    //   if (!fs.existsSync(uploadDir)) {
-    //     fs.mkdirSync(uploadDir, { recursive: true });
-    //   }
-
-    //   const uniqueName = `${Date.now()}-${req.file.originalname}`;
-    //   const filePath = path.join(uploadDir, uniqueName);
-
-    //   fs.writeFileSync(filePath, req.file.buffer);
-
-    //   uploadedFileData = {
-    //     filename: uniqueName,
-    //     originalName: req.file.originalname,
-    //     mimeType: req.file.mimetype,
-    //     size: req.file.size,
-    //     url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
-    //   };
-    // }
-
     let uploadedFileData = null;
 
-if (req.file) {
-  uploadedFileData = {
-    filename: req.file.filename,
-    originalName: req.file.originalname,
-    mimeType: req.file.mimetype,
-    size: req.file.size,
-    url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
-  };
+// if (req.file) {
+//   uploadedFileData = {
+//     filename: req.file.filename,
+//     originalName: req.file.originalname,
+//     mimeType: req.file.mimetype,
+//     size: req.file.size,
+//     url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
+//   };
 
-  console.log('Uploaded File:', uploadedFileData);
-}
+//   console.log('Uploaded File:', uploadedFileData);
+// }
+
+ // ✅ FIX: Handle file upload properly
+    if (req.file) {
+      console.log('File received:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
+
+      // Ensure the upload directory exists
+      const uploadDir = process.env.NODE_ENV === 'production'
+        ? '/tmp/bookings'
+        : path.join(__dirname, '..', 'uploads', 'bookings');
+
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // If multer saved the file, use req.file.filename
+      // If multer didn't save it, save it manually
+      if (req.file.filename) {
+        // Multer saved it with a filename
+        uploadedFileData = {
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${req.file.filename}`,
+        };
+      } else if (req.file.buffer) {
+        // Manual save (if multer didn't save)
+        const uniqueName = `${Date.now()}-${req.file.originalname}`;
+        const filePath = path.join(uploadDir, uniqueName);
+        fs.writeFileSync(filePath, req.file.buffer);
+        
+        uploadedFileData = {
+          filename: uniqueName,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          url: `${req.protocol}://${req.get('host')}/bookings/file/${uniqueName}`,
+        };
+      }
+
+      console.log('Uploaded File Data:', uploadedFileData);
+    }
 
     const {
       tutorId,
@@ -1066,24 +1086,44 @@ const getBookingDetails = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found or unauthorized' });
     }
 
-    const isGroupSession = booking.sessionType === 'group';
-    const canConfirmCompletion = booking.status === 'confirmed' && !booking.completedAt;
+    console.log('Booking data:', {
+      hasUploadedFile: !!booking.uploadedFile,
+      uploadedFile: booking.uploadedFile,
+      groupStudents: booking.groupStudents?.map(g => ({
+        hasFile: !!g.uploadedFile,
+        file: g.uploadedFile,
+      })),
+    });
 
     // ✅ Get base URL
     const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
 
-    // ✅ Build file URL
-    const studentFile = booking.uploadedFile ? {
-      originalName: booking.uploadedFile.originalName,
-      mimeType: booking.uploadedFile.mimeType,
-      size: booking.uploadedFile.size,
-      url: `${baseUrl}/bookings/file/${booking.uploadedFile.filename}`,
-    } : null;
+    // ✅ Build file URL - MAKE SURE filename exists
+    let studentFile = null;
+    if (booking.uploadedFile && booking.uploadedFile.filename) {
+      studentFile = {
+        originalName: booking.uploadedFile.originalName || 'file',
+        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
+        size: booking.uploadedFile.size || 0,
+        url: `${baseUrl}/bookings/file/${booking.uploadedFile.filename}`,
+      };
+    } else if (booking.uploadedFile && booking.uploadedFile.url) {
+      // If URL was saved directly
+      studentFile = {
+        originalName: booking.uploadedFile.originalName || 'file',
+        mimeType: booking.uploadedFile.mimeType || 'application/octet-stream',
+        size: booking.uploadedFile.size || 0,
+        url: booking.uploadedFile.url,
+      };
+    }
 
     // ✅ Helper to get avatar URL
     const getAvatarUrl = (user) => {
-      if (!user || !user.avatar || !user.avatar.data) return null;
-      return `${baseUrl}/users/avatar/${user._id}`;
+      if (!user) return null;
+      if (user.avatar && user.avatar.data) {
+        return `${baseUrl}/users/avatar/${user._id}`;
+      }
+      return null;
     };
 
     const responseData = {
@@ -1098,8 +1138,7 @@ const getBookingDetails = async (req, res) => {
       adminConfirmed: booking.adminConfirmed,
       meetingLink: booking.adminConfirmed ? booking.meetingLink : null,
       createdAt: booking.createdAt,
-      canConfirmCompletion,
-      studentFile,
+      studentFile: studentFile, // ✅ This will be sent to frontend
 
       student: booking.studentId ? {
         _id: booking.studentId._id,
@@ -1119,40 +1158,45 @@ const getBookingDetails = async (req, res) => {
       } : null,
     };
 
-    // 🔹 1-on-1 Booking Response
-    if (!isGroupSession) {
-      responseData.student = booking.studentId ? {
-        _id: booking.studentId._id,
-        name: booking.studentId.name,
-        email: booking.studentId.email,
-        about: booking.studentId.about,
-        goal: booking.studentId.goal,
-        avatar: getAvatarUrl(booking.studentId),
-      } : null;
-    }
-
-    // 🔹 Group Booking Response
-    if (isGroupSession) {
+    // ✅ Group Booking Response - Fix file URLs
+    if (booking.sessionType === 'group') {
       responseData.groupStudents = booking.groupStudents.map((item) => {
         const student = item.student;
+        let uploadedFile = null;
+        
+        if (item.uploadedFile) {
+          if (item.uploadedFile.filename) {
+            uploadedFile = {
+              originalName: item.uploadedFile.originalName || 'file',
+              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
+              size: item.uploadedFile.size || 0,
+              url: `${baseUrl}/bookings/file/${item.uploadedFile.filename}`,
+            };
+          } else if (item.uploadedFile.url) {
+            uploadedFile = {
+              originalName: item.uploadedFile.originalName || 'file',
+              mimeType: item.uploadedFile.mimeType || 'application/octet-stream',
+              size: item.uploadedFile.size || 0,
+              url: item.uploadedFile.url,
+            };
+          }
+        }
+
         return {
           _id: student?._id,
-          name: student?.name,
+          name: student?.name || 'Unknown',
           email: student?.email,
           about: student?.about,
           goal: student?.goal,
           avatar: student ? getAvatarUrl(student) : null,
-          uploadedFile: item.uploadedFile ? {
-            originalName: item.uploadedFile.originalName,
-            mimeType: item.uploadedFile.mimeType,
-            size: item.uploadedFile.size,
-            url: `${baseUrl}/bookings/file/${item.uploadedFile.filename}`,
-          } : null,
+          uploadedFile: uploadedFile,
         };
       });
       responseData.totalStudents = booking.groupStudents.length;
     }
 
+    console.log('Response data student file:', responseData.studentFile);
+    
     res.json({ success: true, booking: responseData });
   } catch (err) {
     console.error('getBookingDetails error:', err);
